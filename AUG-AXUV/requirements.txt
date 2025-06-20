@@ -6,3 +6,4 @@ shapely
 scikit-image
 SQLAlchemy
 matplotlib
+ipykernel

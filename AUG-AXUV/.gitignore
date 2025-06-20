@@ -3,3 +3,6 @@ Archive/
 *__pycache__*
 *.vscode*
 *.pickle
+aug/
+.venv
+.vscode*
