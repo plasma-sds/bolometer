@@ -1,0 +1,5 @@
+AXUV/data/*/
+Archive/
+*__pycache__*
+*.vscode*
+*.pickle
