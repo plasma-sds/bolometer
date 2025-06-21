@@ -6,3 +6,4 @@ Archive/
 aug/
 .venv
 .vscode*
+*.h5
