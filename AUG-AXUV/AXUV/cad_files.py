@@ -6,7 +6,7 @@ from raysect.optical.material import AbsorbingSurface
 from raysect.optical.library.metal import RoughTungsten
 
 
-CADMESH_PATH = "/home/leferi/Repos/AUG-AXUV/"
+CADMESH_PATH = "../"
 
 
 VESSEL = [
