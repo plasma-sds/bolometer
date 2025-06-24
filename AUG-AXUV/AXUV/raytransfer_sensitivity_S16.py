@@ -792,18 +792,35 @@ ray_transfer_grid.parent = world
 NUM_OF_DIODES = 96
 wavelength_bins = len(wavelengths) + 1
 
+HDF5_PATH = "raytransfer_S16_reflections.h5"
+
+# === One-time file setup ===
+if not os.path.exists(HDF5_PATH):
+    with h5py.File(HDF5_PATH, 'w') as h5f:
+        h5f.create_dataset("sensitivity_matrix", shape=(NUM_OF_DIODES, num_cells, wavelength_bins), dtype='f8')
+        h5f.create_dataset("grid_centres", data=cell_centres)
+        h5f.create_dataset("voxel_map", data=ray_transfer_grid.voxel_map)
+        h5f.create_dataset("inverse_voxel_map", data=ray_transfer_grid.invert_voxel_map())
+        h5f.create_dataset("laplacian", data=grid_laplacian)
+        h5f.create_dataset("mask", data=ray_transfer_grid.mask)
+        h5f.create_dataset("completed_bins", shape=(wavelength_bins,), dtype='i1')  # 0 = not done, 1 = done
+
+# === Main computation loop ===
 sensitivity_matrix = np.zeros([NUM_OF_DIODES, num_cells, wavelength_bins])
 
-i = 0
 for j in range(wavelength_bins):
-    print(f"\nCalculating for wavelength bin {j + 1}/{wavelength_bins}")
+    # Check if bin j is already completed
+    with h5py.File(HDF5_PATH, 'r') as h5f:
+        if h5f["completed_bins"][j]:
+            print(f"Skipping wavelength bin {j+1} (already completed)")
+            continue
+
+    print(f"\nCalculating for wavelength bin {j+1}/{wavelength_bins}")
+    i = 0
     for camera in cameras:
         for foil in camera:
-            print("Calculating sensitivity for {}...".format(foil.name))
+            print(f"Calculating sensitivity for {foil.name}...")
             foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
-            # All objects in world have wavelength-independent material properties,
-            # so it doesn't matter which wavelength range we use (as long as
-            # max_wavelength - min_wavelength = 1)
             foil.min_wavelength = wavelengths[j]
             foil.max_wavelength = wavelengths[j+1]
             foil.spectral_bins = ray_transfer_grid.bins
@@ -812,16 +829,46 @@ for j in range(wavelength_bins):
             foil.observe()
             sensitivity_matrix[i, :, j] = foil.pipelines[0].matrix
             i += 1
+            foil.max_wavelength = wavelengths[j+1] + 1.
 
-# Save the voxel grid information and the geometry matrix for use in other demos
-ray_transfer_grid_data = {
-    'grid_centres': cell_centres,
-    'voxel_map': ray_transfer_grid.voxel_map,
-    'inverse_voxel_map': ray_transfer_grid.invert_voxel_map(),
-    'laplacian': grid_laplacian,
-    'mask': ray_transfer_grid.mask,
-    'sensitivity_matrix': sensitivity_matrix
-}
+    # Open file just to save results for this bin
+    with h5py.File(HDF5_PATH, 'r+') as h5f:
+        h5f["sensitivity_matrix"][:, :, j] = sensitivity_matrix[:, :, j]
+        h5f["completed_bins"][j] = 1
+        h5f.flush()
 
-with open(RAYTRANSFER_PATH, "wb") as f:
-    pickle.dump(ray_transfer_grid_data, f)
+# sensitivity_matrix = np.zeros([NUM_OF_DIODES, num_cells, wavelength_bins])
+
+# for j in range(wavelength_bins):
+#     print(f"\nCalculating for wavelength bin {j + 1}/{wavelength_bins}")
+#     i = 0
+#     for camera in cameras:
+#         for foil in camera:
+#             print("Calculating sensitivity for {}...".format(foil.name))
+#             foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
+#             # All objects in world have wavelength-independent material properties,
+#             # so it doesn't matter which wavelength range we use (as long as
+#             # max_wavelength - min_wavelength = 1)
+#             foil.min_wavelength = wavelengths[j]
+#             foil.max_wavelength = wavelengths[j+1]
+#             foil.spectral_bins = ray_transfer_grid.bins
+#             foil.spectral_rays = 1
+#             foil.pixel_samples = 1e6
+#             foil.observe()
+#             sensitivity_matrix[i, :, j] = foil.pipelines[0].matrix
+#             i += 1
+#             foil.max_wavelength = wavelengths[j+1] + 1.  # this is needed so that the next iteration of the outermost
+#                                                          # loop doesn't trip on min_wavelength being the same as max_wavelength
+
+# # Save the voxel grid information and the geometry matrix for use in other demos
+# ray_transfer_grid_data = {
+#     'grid_centres': cell_centres,
+#     'voxel_map': ray_transfer_grid.voxel_map,
+#     'inverse_voxel_map': ray_transfer_grid.invert_voxel_map(),
+#     'laplacian': grid_laplacian,
+#     'mask': ray_transfer_grid.mask,
+#     'sensitivity_matrix': sensitivity_matrix
+# }
+
+# with open(RAYTRANSFER_PATH, "wb") as f:
+#     pickle.dump(ray_transfer_grid_data, f)
