@@ -7,3 +7,5 @@ aug/
 .venv
 .vscode*
 *.h5
+*.png
+*.gif

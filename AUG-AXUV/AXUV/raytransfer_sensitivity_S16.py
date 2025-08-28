@@ -55,15 +55,6 @@ WALL_MATERIAL = AbsorbingSurface()
 # Set the pipeline to be used by the diodes
 PIPELINES = [RayTransferPipeline0D()]
 
-# The emitted spectra will be calculated in 3xSPECTRAL_BINS number of total spectral bins.
-# The spectrum is divided into 3 parts defined by the MIN_WAVELENGTHS and MAX_WAVELENGTHS lists.
-# In each part the spectrum is divided linearly in wavelength to SPECTRAL_BINS number of bins.
-# The current setup is optimal for AXUV diodes in case there are high-Z impurities.
-SPECTRAL_BINS = 100
-                                      # Approx photon energies in eV
-MIN_WAVELENGTHS = [0.25, 12.4, 124]   # 5000, 100, 10
-MAX_WAVELENGTHS = [12.4, 124, 1240]   # 100, 10, 1
-
 # Loading diode geometry data into pandas dataframe for easier filtering
 AXUV_DATAFILE = DATADIR + "AXUV_LOS_geom.txt"
 try:
@@ -323,14 +314,14 @@ def make_axuv_camera(sensor_angles, sensor_distances, signalnames, slit_id, dete
         slit_y = SLIT_HEIGHT_Y_VERT
 
     slit_x = SLIT_WIDTH_X
-    top_x = slit_x  # just to have a small edge around the slit
-    top_y = slit_y 
+    material_width = 1e-6
+    top_x = slit_x / 2 + material_width  # let's not have any edge around the slit
+    top_y = slit_y / 2 + material_width
 
     inner_back_x = FRUSTUM_WIDTH_X / 2
     inner_back_y = BOX_HEIGHT_Y / 2
     inner_depth = BOX_DEPTH
 
-    material_width = 1e-6
     outer_back_x = inner_back_x + material_width
     outer_back_y = inner_back_y + material_width
     outer_depth = inner_depth + material_width
@@ -433,8 +424,8 @@ def make_axuv_camera(sensor_angles, sensor_distances, signalnames, slit_id, dete
     else:
         slit_height_y = SLIT_HEIGHT_Y_VERT
 
-    aperture = Box(lower=Point3D(-SLIT_WIDTH_X / 2, -slit_height_y / 2, -1e-5),
-                   upper=Point3D(SLIT_WIDTH_X / 2, slit_height_y / 2, 1e-5))
+    aperture = Box(lower=Point3D(-SLIT_WIDTH_X / 2, -slit_height_y / 2, -material_width),
+                   upper=Point3D(SLIT_WIDTH_X / 2, slit_height_y / 2, material_width))
     camera_box = Subtract(camera_box, aperture)
 
     camera_box.material = AbsorbingSurface()
@@ -468,7 +459,6 @@ def make_axuv_camera(sensor_angles, sensor_distances, signalnames, slit_id, dete
                              slit=slit, parent=diode_camera,accumulate=False, curvature_radius=0)
 
         # spectral settings
-        diode.spectral_bins = SPECTRAL_BINS
         diode.pipelines = PIPELINES
         
         # Adding the specific diode to the camera
@@ -561,7 +551,6 @@ def make_axuv_camera_box(sensor_angles, sensor_distances, signalnames, slit_id, 
                              slit=slit, parent=diode_camera,accumulate=False, curvature_radius=0)
 
         # spectral settings
-        diode.spectral_bins = SPECTRAL_BINS
         diode.pipelines = PIPELINES
         
         # Adding the specific diode to the camera
@@ -678,8 +667,8 @@ neonlist = [neon0, neon1, neon2, neon3, neon4, neon5, neon6, neon7, neon8, neon9
 # this results in ~4 GB memory allocation for the creation of the ~4000 element voxel grid 
 # NOTE Doubling the total number of grid points results in a 2^2=4 times increase in the memory needed!
 # NOTE Doubling the resolution in both directions results in a (2*2)^2=16 times increase!
-resolution_R = 120
-resolution_z = 220
+resolution_R = 60
+resolution_z = 110
 
 plasma_res_R=int(resolution_R)
 plasma_res_z=int(resolution_z)
@@ -790,9 +779,9 @@ print("Calculating the geometry matrix...")
 ray_transfer_grid.parent = world
 
 NUM_OF_DIODES = 96
-wavelength_bins = len(wavelengths) + 1
+wavelength_bins = len(wavelengths) - 1
 
-HDF5_PATH = "raytransfer_S16_reflections.h5"
+HDF5_PATH = "raytransfer_S16_reflections_new_lowres.h5"
 
 # === One-time file setup ===
 if not os.path.exists(HDF5_PATH):
@@ -819,17 +808,17 @@ for j in range(wavelength_bins):
     i = 0
     for camera in cameras:
         for foil in camera:
-            print(f"Calculating sensitivity for {foil.name}...")
+            print(f"Calculating sensitivity for {foil.name}...\r")
             foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
             foil.min_wavelength = wavelengths[j]
             foil.max_wavelength = wavelengths[j+1]
             foil.spectral_bins = ray_transfer_grid.bins
             foil.spectral_rays = 1
-            foil.pixel_samples = 1e6
+            foil.pixel_samples = 1e5
             foil.observe()
             sensitivity_matrix[i, :, j] = foil.pipelines[0].matrix
             i += 1
-            foil.max_wavelength = wavelengths[j+1] + 1.
+            foil.max_wavelength = wavelengths[j+1] + 10
 
     # Open file just to save results for this bin
     with h5py.File(HDF5_PATH, 'r+') as h5f:
@@ -837,38 +826,4 @@ for j in range(wavelength_bins):
         h5f["completed_bins"][j] = 1
         h5f.flush()
 
-# sensitivity_matrix = np.zeros([NUM_OF_DIODES, num_cells, wavelength_bins])
 
-# for j in range(wavelength_bins):
-#     print(f"\nCalculating for wavelength bin {j + 1}/{wavelength_bins}")
-#     i = 0
-#     for camera in cameras:
-#         for foil in camera:
-#             print("Calculating sensitivity for {}...".format(foil.name))
-#             foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
-#             # All objects in world have wavelength-independent material properties,
-#             # so it doesn't matter which wavelength range we use (as long as
-#             # max_wavelength - min_wavelength = 1)
-#             foil.min_wavelength = wavelengths[j]
-#             foil.max_wavelength = wavelengths[j+1]
-#             foil.spectral_bins = ray_transfer_grid.bins
-#             foil.spectral_rays = 1
-#             foil.pixel_samples = 1e6
-#             foil.observe()
-#             sensitivity_matrix[i, :, j] = foil.pipelines[0].matrix
-#             i += 1
-#             foil.max_wavelength = wavelengths[j+1] + 1.  # this is needed so that the next iteration of the outermost
-#                                                          # loop doesn't trip on min_wavelength being the same as max_wavelength
-
-# # Save the voxel grid information and the geometry matrix for use in other demos
-# ray_transfer_grid_data = {
-#     'grid_centres': cell_centres,
-#     'voxel_map': ray_transfer_grid.voxel_map,
-#     'inverse_voxel_map': ray_transfer_grid.invert_voxel_map(),
-#     'laplacian': grid_laplacian,
-#     'mask': ray_transfer_grid.mask,
-#     'sensitivity_matrix': sensitivity_matrix
-# }
-
-# with open(RAYTRANSFER_PATH, "wb") as f:
-#     pickle.dump(ray_transfer_grid_data, f)
