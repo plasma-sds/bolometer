@@ -9,3 +9,4 @@ aug/
 *.h5
 *.png
 *.gif
+output/

@@ -620,19 +620,6 @@ def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
     return world, cameras
 
 if __name__ == "__main__":
-    # Generate wavelengths array
-    segments = []
-    current = 0.25
-    step = 0.1
-
-    while current < 1245:
-        segments.append(current)
-        current += step
-        step = min((step + 0.1), 5)  # Linear increase of step
-
-    wavelengths = np.asarray(segments)
-    energies_eV = 1239.8 / np.asarray(segments)
-
     with h5py.File(INPUT_FILENAME, "r") as f:
         majorR = f["R"][()][:, np.newaxis]
         zaxis = f["Z"][()][:, np.newaxis]
@@ -651,8 +638,25 @@ if __name__ == "__main__":
         
         eTemp = f["Te"][()][:, np.newaxis]
         eDens = f["ne"][()][:, np.newaxis]
+        try:
+            SI_time = f["time"][()][0]
+        except:
+            SI_time = INPUT_FILENAME.strip(CURRENTDIR+'/input/output_step').strip('_out.h5')
 
-        SI_time = f["time"][()][0] 
+    # Remove negative values
+    neon0[neon0 < 0] = 0
+    neon1[neon1 < 0] = 0
+    neon2[neon2 < 0] = 0
+    neon3[neon3 < 0] = 0
+    neon4[neon4 < 0] = 0
+    neon5[neon5 < 0] = 0
+    neon6[neon6 < 0] = 0
+    neon7[neon7 < 0] = 0
+    neon8[neon8 < 0] = 0
+    neon9[neon9 < 0] = 0
+    neon10[neon10 < 0] = 0
+    eTemp[eTemp < 0] = 0
+    eDens[eDens < 0] = 0 
 
     neonlist = [neon0, neon1, neon2, neon3, neon4, neon5, neon6, neon7, neon8, neon9, neon10]
 
@@ -691,7 +695,7 @@ if __name__ == "__main__":
     hull = ConvexHull(points)
     convex_hull = points[hull.vertices]
 
-    world, cameras = create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False)    
+    world, cameras = create_observable_world(cad_mesh=False, show_plots=False)    
 
     print("Creating plasma...")
     plasma = Plasma(parent=world)
@@ -712,8 +716,8 @@ if __name__ == "__main__":
     deuterium_mass = elements.deuterium.atomic_weight * atomic_mass
     neon_mass = elements.neon.atomic_weight * atomic_mass
 
-    extrap_x = 3
-    extrap_y = 1
+    extrap_x = 0.1
+    extrap_y = 0.1
 
     # Calculate D1 density from quasi-neutrality
     calculated_d1 = (interpolated_eDens - interpolated_neon[1, :, :] - 2 * interpolated_neon[2, :, :] 
@@ -817,20 +821,26 @@ if __name__ == "__main__":
                         ne10_species, de1_species]
 
     # Define spectral measurements array - has to be size: num of diodes by spectral bins
-    NUM_OF_DIODES = 96
-    SPECTRAL_BINS = wavelengths.shape[0] - 1
-    spectral_measurements = np.zeros([NUM_OF_DIODES, SPECTRAL_BINS])
+    NUM_OF_DIODES = sensitivity_matrix.shape[0]
+    SPECTRAL_BINS = 100
+                                          # Approx photon energies in eV
+    MIN_WAVELENGTHS = [0.25, 12.4, 124]   # 5000, 100, 10
+    MAX_WAVELENGTHS = [12.4, 124, 1240]   # 100, 10, 1
 
-    # This direction would be for the ray-tracer, it is arbitrary, but has to be supplied to the emission model
-    direction = Vector3D(0, 0, 1)
-    spectrum = Spectrum(wavelengths[0], wavelengths[-1], SPECTRAL_BINS)
+    def get_spectrum_part(part):
+        return np.linspace(MIN_WAVELENGTHS[part], MAX_WAVELENGTHS[part], SPECTRAL_BINS)
 
+    wavelengths = np.unique(np.array([*get_spectrum_part(0),*get_spectrum_part(1),*get_spectrum_part(2)]))
+    energies_eV = 1239.8 / wavelengths
+    total_wavelength_bins = len(wavelengths) - 1
 
-    def emission_function_3d_v2(x, y, z, bins):
+    def emission_function_3d_v3(x, y, z, part):
         """
         Provides emission in units of W m^-3 sr^-1 nm^-1
         """
-        emission = np.zeros(bins)
+        spectrum = Spectrum(MIN_WAVELENGTHS[part], MAX_WAVELENGTHS[part], SPECTRAL_BINS-1)
+        direction = Vector3D(0, 0, 1)
+        emission = np.zeros(SPECTRAL_BINS-1)
 
         for model in plasma.models:
             point = Point3D(x, y, z)
@@ -838,28 +848,35 @@ if __name__ == "__main__":
 
         return emission
         
+    emissions = np.zeros([inverse_voxel_map.shape[0], total_wavelength_bins])
 
-    emissions = np.zeros([inverse_voxel_map.shape[0], SPECTRAL_BINS])
     for i in range(inverse_voxel_map.shape[0]):
+        # Get the indices of the i-th voxel in the grid_centres array
         aa = inverse_voxel_map[i, 0, 0]
         cc = inverse_voxel_map[i, 2, 0]
-        xi = grid_centres[aa, cc, 0]
-        yi = 0
-        zi = grid_centres[aa, cc, 1]
-        emission_in_point = emission_function_3d_v2(xi, yi, zi, SPECTRAL_BINS)
-        emissions[i, :] = emission_in_point
 
-    NUM_OF_DIODES = sensitivity_matrix.shape[0]
-    measured_spectra = np.zeros([NUM_OF_DIODES, SPECTRAL_BINS])
-    for i in range(NUM_OF_DIODES):
-        for j in range(SPECTRAL_BINS):
-            measured_spectra[i, j] = np.sum(sensitivity_matrix[i, :, j] * emissions[:, j])
+        # Get the real world coordinates corresponding to the i-th voxel
+        xi = grid_centres[aa, cc, 0]  # To get R coordinate
+        yi = 0  # Assume y coordinate is 0
+        zi = grid_centres[aa, cc, 1]  # To get z coordinate
+
+        emission_in_point = np.zeros(total_wavelength_bins)
+        for part in range(3):
+            emission_in_point[part*99:(part+1)*99] = emission_function_3d_v3(xi, yi, zi, part)
+
+        emissions[i, :] = emission_in_point
+        print(str(i)+"/"+str(inverse_voxel_map.shape[0]), end="\r")
+
+    # measured_spectra = np.zeros([NUM_OF_DIODES, total_wavelength_bins])
+    # for i in range(NUM_OF_DIODES):
+    #     for j in range(total_wavelength_bins):
+    #         measured_spectra[i, j] = np.sum(sensitivity_matrix[i, :, j] * emissions[:, j])
 
     # Saving the emission data as HDF5
     with h5py.File(SAVEDIR + "raytransfer_emissions_" + "{:.6f}".format(SI_time) + ".h5", "w") as file:
         file.create_dataset("emissions", data=emissions)
         file.create_dataset("wavelengths", data=wavelengths)
         file.create_dataset("energies", data=energies_eV)
-        file.create_dataset("diode_measurements", data=measured_spectra)
+        # file.create_dataset("diode_measurements", data=measured_spectra)
 
     print("\nSaved emission data.")

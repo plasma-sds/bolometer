@@ -39,7 +39,7 @@ INNER_HEAT_SHIELD = [
     os.path.join(CADMESH_PATH, 'aug/vessel/inner_heat_shield_s16.rsm'),
 ]
 
-PSL = [os.path.join(CADMESH_PATH, 'aug/vessel/PSL_s01-16_2010_10_21.rsm')]
+# PSL = [os.path.join(CADMESH_PATH, 'aug/vessel/PSL_s01-16_2010_10_21.rsm')]
 
 ICRH = [
     os.path.join(CADMESH_PATH, 'aug/icrh/icrh_s02.rsm'),
@@ -62,10 +62,11 @@ DIVERTOR = [
 A_B_COILS = [
     os.path.join(CADMESH_PATH, 'aug/a_b_coils/A-coils_s01-16_2010_10_21.rsm'),
     os.path.join(CADMESH_PATH, 'aug/a_b_coils/cover_Bl-coils_s01-s16.rsm'),
-    os.path.join(CADMESH_PATH, 'aug/a_b_coils/cover_Bu-coils_s01-s16.rsm'),
-]
+    os.path.join(CADMESH_PATH, 'aug/a_b_coils/cover_Bu-coils_s01-s16_modified.rsm'),  # one small section removed 
+]                                                                                     # that would cover some D16 LOS
 
-AUG_FULL_MESH = VESSEL + INNER_HEAT_SHIELD + PSL + ICRH + DIVERTOR + A_B_COILS
+
+AUG_FULL_MESH = VESSEL + INNER_HEAT_SHIELD + ICRH + DIVERTOR + A_B_COILS
 
 
 def import_aug_mesh(world, material=RoughTungsten(0.29)):

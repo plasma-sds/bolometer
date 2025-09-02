@@ -1,6 +1,6 @@
 export datadir="/tok/u/lefer/work/AUG-AXUV/AXUV/data"
 
-export currentdir="LF_FV_Ne10"
+export currentdir="LF_FV_Ne1"
 
 mkdir -p $datadir/$currentdir/stdout
 mkdir -p $datadir/$currentdir/output
@@ -22,7 +22,7 @@ wait
 
 echo "$currentdir done"
 
-export currentdir="LF_FV_Ne1"
+export currentdir="LF_FV_Ne10"
 
 mkdir -p $datadir/$currentdir/stdout
 mkdir -p $datadir/$currentdir/output

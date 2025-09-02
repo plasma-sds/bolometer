@@ -621,20 +621,6 @@ def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
 
     return world, cameras
 
-
-# Generate wavelengths array
-segments = []
-current = 0.25
-step = 0.1
-
-while current < 1245:
-    segments.append(current)
-    current += step
-    step = min((step + 0.1), 5)  # Linear increase of step
-
-wavelengths = np.asarray(segments)
-energies_eV = 1240 / np.asarray(segments)
-
 timestep = "02410"
 # loading JOREK output data
 print(timestep)
@@ -779,42 +765,55 @@ print("Calculating the geometry matrix...")
 ray_transfer_grid.parent = world
 
 NUM_OF_DIODES = 96
-wavelength_bins = len(wavelengths) - 1
 
-HDF5_PATH = "raytransfer_S16_reflections_new_lowres.h5"
+def get_spectrum_part(part):
+    SPECTRAL_BINS = 100
+                                        # Approx photon energies in eV
+    MIN_WAVELENGTHS = [0.25, 12.4, 124]   # 5000, 100, 10
+    MAX_WAVELENGTHS = [12.4, 124, 1240]   # 100, 10, 1
+
+    return np.linspace(MIN_WAVELENGTHS[part], MAX_WAVELENGTHS[part], SPECTRAL_BINS)
+
+wavelengths = np.unique(np.array([*get_spectrum_part(0),*get_spectrum_part(1),*get_spectrum_part(2)]))
+energies_eV = 1239.8 / wavelengths
+total_wavelength_bins = len(wavelengths) - 1
+
+HDF5_PATH = "raytransfer_S16_reflections_lowres.h5"
 
 # === One-time file setup ===
 if not os.path.exists(HDF5_PATH):
     with h5py.File(HDF5_PATH, 'w') as h5f:
-        h5f.create_dataset("sensitivity_matrix", shape=(NUM_OF_DIODES, num_cells, wavelength_bins), dtype='f8')
+        h5f.create_dataset("sensitivity_matrix", shape=(NUM_OF_DIODES, num_cells, total_wavelength_bins), dtype='f8')
         h5f.create_dataset("grid_centres", data=cell_centres)
         h5f.create_dataset("voxel_map", data=ray_transfer_grid.voxel_map)
         h5f.create_dataset("inverse_voxel_map", data=ray_transfer_grid.invert_voxel_map())
         h5f.create_dataset("laplacian", data=grid_laplacian)
         h5f.create_dataset("mask", data=ray_transfer_grid.mask)
-        h5f.create_dataset("completed_bins", shape=(wavelength_bins,), dtype='i1')  # 0 = not done, 1 = done
+        h5f.create_dataset("completed_bins", shape=(total_wavelength_bins,), dtype='i1')  # 0 = not done, 1 = done
+        h5f.create_dataset("wavelength_bin_edges", data=wavelengths)
+        h5f.create_dataset("energy_bin_edges_eV", data=energies_eV)
 
 # === Main computation loop ===
-sensitivity_matrix = np.zeros([NUM_OF_DIODES, num_cells, wavelength_bins])
+sensitivity_matrix = np.zeros([NUM_OF_DIODES, num_cells, total_wavelength_bins])
 
-for j in range(wavelength_bins):
+for j in range(total_wavelength_bins):
     # Check if bin j is already completed
     with h5py.File(HDF5_PATH, 'r') as h5f:
         if h5f["completed_bins"][j]:
             print(f"Skipping wavelength bin {j+1} (already completed)")
             continue
 
-    print(f"\nCalculating for wavelength bin {j+1}/{wavelength_bins}")
+    print(f"Calculating for wavelength bin {j+1}/{total_wavelength_bins}")
     i = 0
     for camera in cameras:
         for foil in camera:
-            print(f"Calculating sensitivity for {foil.name}...\r")
+            print(f"Calculating sensitivity for {foil.name}...", end="\r")
             foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
             foil.min_wavelength = wavelengths[j]
             foil.max_wavelength = wavelengths[j+1]
             foil.spectral_bins = ray_transfer_grid.bins
             foil.spectral_rays = 1
-            foil.pixel_samples = 1e5
+            foil.pixel_samples = 1e6
             foil.observe()
             sensitivity_matrix[i, :, j] = foil.pipelines[0].matrix
             i += 1
