@@ -653,8 +653,8 @@ neonlist = [neon0, neon1, neon2, neon3, neon4, neon5, neon6, neon7, neon8, neon9
 # this results in ~4 GB memory allocation for the creation of the ~4000 element voxel grid 
 # NOTE Doubling the total number of grid points results in a 2^2=4 times increase in the memory needed!
 # NOTE Doubling the resolution in both directions results in a (2*2)^2=16 times increase!
-resolution_R = 60
-resolution_z = 110
+resolution_R = 120
+resolution_z = 220
 
 plasma_res_R=int(resolution_R)
 plasma_res_z=int(resolution_z)
@@ -778,7 +778,7 @@ wavelengths = np.unique(np.array([*get_spectrum_part(0),*get_spectrum_part(1),*g
 energies_eV = 1239.8 / wavelengths
 total_wavelength_bins = len(wavelengths) - 1
 
-HDF5_PATH = "raytransfer_S16_reflections_lowres.h5"
+HDF5_PATH = "raytransfer_S16_reflections_highres.h5"
 
 # === One-time file setup ===
 if not os.path.exists(HDF5_PATH):
@@ -814,6 +814,7 @@ for j in range(total_wavelength_bins):
             foil.spectral_bins = ray_transfer_grid.bins
             foil.spectral_rays = 1
             foil.pixel_samples = 1e6
+            foil.ray_max_depth = 50
             foil.observe()
             sensitivity_matrix[i, :, j] = foil.pipelines[0].matrix
             i += 1

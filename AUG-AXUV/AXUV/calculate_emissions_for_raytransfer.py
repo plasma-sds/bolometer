@@ -47,7 +47,7 @@ CURRENTDIR = DATADIR + str(os.environ.get("currentdir")) + "/"
 SAVEDIR = CURRENTDIR + "output/"
 INPUT_FILENAME = str(sys.argv[1])
 
-RAYTRANSFER_PATH = DATADIR + "raytransfer_S16_reflections.h5"
+RAYTRANSFER_PATH = DATADIR + "raytransfer_S16_reflections_highres.h5"
 USE_CAD_MESH = True
 
 # Set the pipeline to be used by the diodes
@@ -620,6 +620,7 @@ def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
     return world, cameras
 
 if __name__ == "__main__":
+    mask_negative = True
     with h5py.File(INPUT_FILENAME, "r") as f:
         majorR = f["R"][()][:, np.newaxis]
         zaxis = f["Z"][()][:, np.newaxis]
@@ -643,20 +644,20 @@ if __name__ == "__main__":
         except:
             SI_time = INPUT_FILENAME.strip(CURRENTDIR+'/input/output_step').strip('_out.h5')
 
-    # Remove negative values
-    neon0[neon0 < 0] = 0
-    neon1[neon1 < 0] = 0
-    neon2[neon2 < 0] = 0
-    neon3[neon3 < 0] = 0
-    neon4[neon4 < 0] = 0
-    neon5[neon5 < 0] = 0
-    neon6[neon6 < 0] = 0
-    neon7[neon7 < 0] = 0
-    neon8[neon8 < 0] = 0
-    neon9[neon9 < 0] = 0
-    neon10[neon10 < 0] = 0
-    eTemp[eTemp < 0] = 0
-    eDens[eDens < 0] = 0 
+    if mask_negative:
+        eTemp = np.maximum(eTemp, 1.)
+        eDens = np.maximum(eDens, 0)
+        neon0 = np.maximum(neon0, 0)
+        neon1 = np.maximum(neon1, 0)
+        neon2 = np.maximum(neon2, 0)
+        neon3 = np.maximum(neon3, 0)
+        neon4 = np.maximum(neon4, 0)
+        neon5 = np.maximum(neon5, 0)
+        neon6 = np.maximum(neon6, 0)
+        neon7 = np.maximum(neon7, 0)
+        neon8 = np.maximum(neon8, 0)
+        neon9 = np.maximum(neon9, 0)
+        neon10 = np.maximum(neon10, 0)
 
     neonlist = [neon0, neon1, neon2, neon3, neon4, neon5, neon6, neon7, neon8, neon9, neon10]
 
@@ -867,16 +868,16 @@ if __name__ == "__main__":
         emissions[i, :] = emission_in_point
         print(str(i)+"/"+str(inverse_voxel_map.shape[0]), end="\r")
 
-    # measured_spectra = np.zeros([NUM_OF_DIODES, total_wavelength_bins])
-    # for i in range(NUM_OF_DIODES):
-    #     for j in range(total_wavelength_bins):
-    #         measured_spectra[i, j] = np.sum(sensitivity_matrix[i, :, j] * emissions[:, j])
+    measured_spectra = np.zeros([NUM_OF_DIODES, total_wavelength_bins])
+    for i in range(NUM_OF_DIODES):
+        for j in range(total_wavelength_bins):
+            measured_spectra[i, j] = np.sum(sensitivity_matrix[i, :, j] * emissions[:, j])
 
     # Saving the emission data as HDF5
-    with h5py.File(SAVEDIR + "raytransfer_emissions_" + "{:.6f}".format(SI_time) + ".h5", "w") as file:
+    with h5py.File(SAVEDIR + "raytransfer_emissions_highres_1eV_" + "{:.6f}".format(SI_time) + ".h5", "w") as file:
         file.create_dataset("emissions", data=emissions)
         file.create_dataset("wavelengths", data=wavelengths)
         file.create_dataset("energies", data=energies_eV)
-        # file.create_dataset("diode_measurements", data=measured_spectra)
+        file.create_dataset("diode_measurements", data=measured_spectra)
 
     print("\nSaved emission data.")
