@@ -621,6 +621,7 @@ def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
 
 if __name__ == "__main__":
     mask_negative = True
+    test_uniform = False
     with h5py.File(INPUT_FILENAME, "r") as f:
         majorR = f["R"][()][:, np.newaxis]
         zaxis = f["Z"][()][:, np.newaxis]
@@ -658,6 +659,36 @@ if __name__ == "__main__":
         neon8 = np.maximum(neon8, 0)
         neon9 = np.maximum(neon9, 0)
         neon10 = np.maximum(neon10, 0)
+
+    # Values for uniform test
+    # electron density: 1e+20 m^-3
+    # electron temperature: 10 eV
+    # Ne 0 density: 7e+09 m^-3
+    # Ne 1 density: 1e+15 m^-3
+    # Ne 2 density: 1e+18 m^-3
+    # Ne 3 density: 3e+18 m^-3
+    # Ne 4 density: 2e+18 m^-3
+    # Ne 5 density: 1e+18 m^-3
+    # Ne 6 density: 6e+17 m^-3
+    # Ne 7 density: 5e+17 m^-3
+    # Ne 8 density: 2e+17 m^-3
+    # Ne 9 density: 5e+14 m^-3
+    # Ne 10 density: 1e+12 m^-3
+
+    if test_uniform:
+        eTemp.fill(10.)
+        eDens.fill(1e20)
+        neon0.fill(7e9)
+        neon1.fill(1e15)
+        neon2.fill(1e18)
+        neon3.fill(3e18)
+        neon4.fill(2e18)
+        neon5.fill(1e18)
+        neon6.fill(6e17)
+        neon7.fill(5e17)
+        neon8.fill(2e17)
+        neon9.fill(5e14)
+        neon10.fill(1e12)
 
     neonlist = [neon0, neon1, neon2, neon3, neon4, neon5, neon6, neon7, neon8, neon9, neon10]
 
