@@ -1,4 +1,6 @@
 # ASDEX Upgrade AXUV synthetic diagnostics and experimental signal plotting
+- Using Cherab [GitHub](https://github.com/cherab/core) and Raysect [GitHub](https://github.com/raysect/source)
+- Option to use external input profiles from DREAM [GitHub](https://github.com/chalmersplasmatheory/DREAM)
 
 ## AXUV directory
 Contains main 3D synthetic diagnostics setup with AUG wall CAD file importing and reflections together with plotting files.
