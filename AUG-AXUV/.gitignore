@@ -1,0 +1,12 @@
+AXUV/data/*/
+Archive/
+*__pycache__*
+*.vscode*
+*.pickle
+aug/
+.venv
+.vscode*
+*.h5
+*.png
+*.gif
+output/

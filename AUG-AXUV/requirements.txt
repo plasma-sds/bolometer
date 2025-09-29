@@ -1,0 +1,9 @@
+cherab
+h5py
+scipy
+pandas
+shapely
+scikit-image
+SQLAlchemy
+matplotlib
+ipykernel
