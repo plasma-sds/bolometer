@@ -7,3 +7,5 @@ scikit-image
 SQLAlchemy
 matplotlib
 ipykernel
+
+# aug_sfutils - only works on IPP server for users in AUG group
