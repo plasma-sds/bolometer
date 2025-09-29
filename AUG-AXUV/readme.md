@@ -1,4 +1,4 @@
-# AXUV synthetic diagnostics and experimental signal plotting
+# ASDEX Upgrade AXUV synthetic diagnostics and experimental signal plotting
 
 ## AXUV directory
 Contains main 3D synthetic diagnostics setup with AUG wall CAD file importing and reflections together with plotting files.
@@ -7,7 +7,7 @@ Contains main 3D synthetic diagnostics setup with AUG wall CAD file importing an
 Contains tools for experimental signal analysis and plotting files.
 
 ### For Ne lines
-`populate()` in `create.py` can be used as an example in .cherab directory to download Ne data from OpenADAS
+`populate()` in `create.py` can be used as an example in to download Ne data from OpenADAS, the file is located in `cherab/core/cherab/openadas/repository/`.
 
 ### `sightline_DREAMoutput_Ne_SPI.py` 
 A simple LOS modell using DREAM SPI simulation output
