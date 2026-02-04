@@ -25,6 +25,7 @@ plt.rcParams.update({'font.size': 16, "figure.dpi" : 150})
 plt.rcParams['image.cmap'] = 'inferno'
 plt.rcParams['lines.linewidth'] = 2
 
+# Set this path to the root directory where you will want to work with this code
 ROOTFOLDER = "/shares/departments/AUG/users/lefer/AXUV/"
 
 CURSOR_UP_ONE = '\x1b[1A'
