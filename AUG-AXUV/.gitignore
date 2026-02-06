@@ -1,6 +1,6 @@
 AXUV/data/*/
 Archive/
-*__pycache__*
+*__pycache__/
 *.vscode*
 *.pickle
 aug/
@@ -10,3 +10,4 @@ aug/
 *.png
 *.gif
 output/
+create.py
