@@ -272,11 +272,39 @@ def axuv_to_hdf(shot, filewrite=None, starttime=2):
                       + '\033[0m\nValues have been substituted by zeros')
 
     f.close()
+
+def moving_average(array, window_size=3):
+    """Calculates moving average of array with given window size
+    Window size must be a positive odd integer"""
+
+    if not window_size % 2 and window_size < 0:
+        raise ValueError("Window size must be a positive odd integer")
+
+    length = len(array)
+    displacement = window_size // 2
+
+    # Pad the array with zeros on both sides
+    padded_arr = np.zeros(length + window_size - 1)
+    padded_arr[displacement:-displacement] = arr
+
+    # Initialize an empty array to store moving averages
+    # Same length as initial array
+    moving_averages = np.zeros(length)
+
+    # Loop through the padded array to consider every window
+    for i in range(length):
+        # Calculate the average of current window
+        window_average = np.sum(padded_arr[i:i+window_size]) / window_size
+        
+        # Store the average of current window in moving average array
+        moving_averages[i] = window_average
+
+return moving_averages
     
-def calibrate_and_smooth(shotno, fileread=None, filewrite=None):
+def calibrate_and_smooth(shotno, fileread=None, filewrite=None, savgol=True):
     """Moves all signals by an offset based on averaging when there is no plasma
     Calibrates gains based on the CSV gains files generated from #40989 flat-top
-    Smooths both the 'new' and the 'old' signals with different Savitzky-Golay filters
+    Smooths both the 'new' and the 'old' signals with different Savitzky-Golay filters or with moving average
     Cuts off 1 second at the end then saves the smoothed data and the timesignals into a new HDF5 file
 
     Can be used from #40342 until #41307
@@ -287,13 +315,18 @@ def calibrate_and_smooth(shotno, fileread=None, filewrite=None):
         filename to serve as input
     :param filewrite: str, optional
         filename for the output
+    :param savgol: bool, optional
+        if True, smoothing is done via Savitzky-Golay filters
+        if False, smoothing is done by taking the moving average
     """
 
     shotno = str(shotno)
     if fileread is None:
         fileread = 'data_export/' + shotno + '_AXUV.h5'
-    if filewrite is None:
+    if filewrite is None and savgol:
         filewrite = 'smoothed_data/' + shotno + '_sm.h5'
+    elif filewrite is None and not savgol:
+        filewrite = 'ma_data/' + shotno + '_ma.h5'
     fr = h5py.File(fileread, 'r')
     fw = h5py.File(filewrite, 'w')
 
@@ -325,10 +358,18 @@ def calibrate_and_smooth(shotno, fileread=None, filewrite=None):
             tempdata = fr[hierarchy][()][endindex:]
             offset = np.average(tempdata)
             data = fr[hierarchy][()][:endindex] - offset
-            if diagname in NEWAXUV:
-                data = savgol_filter(data * gains[i], 51, 5)
+
+            if savgol:
+                if diagname in NEWAXUV:
+                    data = savgol_filter(data * gains[i], 51, 5)
+                else:
+                    data = savgol_filter(data, 31, 7)
             else:
-                data = savgol_filter(data, 31, 7)
+                if diagname in NEWAXUV:
+                    data = moving_average(data * gains[i], 9)
+                else:
+                    data = savgol_filter(data, 7)
+
             fw.create_dataset(hierarchy, data=data)
             print('{}/{} signals calibrated and written to HDF5'.format(i + 1, numofsignals), end='\r')
             
