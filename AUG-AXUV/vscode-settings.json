@@ -1,0 +1,11 @@
+{
+    "files.autoSave": "afterDelay",
+    "terminal.integrated.inheritEnv": false,
+    "python.terminal.activateEnvironment": false,
+    "terminal.integrated.profiles.linux": {
+    "bash-axuv": {
+      "path": "bash",
+      "args": ["-lc", "module load aug_sfutils; source /tokp/work/lefer/AUG-AXUV/.venv/bin/activate; cd /tokp/work/lefer/AUG-AXUV/; exec bash -li"]
+    }
+  }
+}
