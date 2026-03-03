@@ -1,10 +1,8 @@
 import os
 import h5py
-import copy
 import bisect
 import skimage
 import shapely
-import shapely.ops
 import datetime
 import matplotlib
 import numpy as np
@@ -13,9 +11,7 @@ import shapely.affinity as affinity
 import shapely.geometry as geom
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from csv import writer
-from copy import deepcopy
-from scipy.signal import savgol_filter
+from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import griddata
 
 
@@ -27,8 +23,6 @@ plt.rcParams['lines.linewidth'] = 2
 
 ROOTFOLDER = "/shares/departments/AUG/users/lefer/AXUV/"
 
-CURSOR_UP_ONE = '\x1b[1A'
-ERASE_LINE = '\x1b[2K'
 
 # Dictionary of AXUV signal names we need for SPI experiment data analysis based on AUG shotfiles:
 SIGNAL_NAMES = {"DVC_S5_vert": ["XVR", ['S0L0A00','S0L0A01','S0L0A02','S0L0A03','S0L0A04','S0L0A05','S0L0A06','S0L0A07',
@@ -120,7 +114,6 @@ SPI_COLUMN_NAMES = ["#", " Ne% ", " GT-", " SpeedA ", " first light ", " Delay "
 
 # Current dip and peak times database
 try:
-    #CURRENT_DB = np.genfromtxt("CSVs/currentdipandpeak.csv", delimiter=",")
     CURRENT_DB = np.genfromtxt(ROOTFOLDER + "CSVs/startofincline.csv", delimiter=",")
 except:
     print('\033[31mWARNING! Could not read "current" database')
@@ -223,7 +216,7 @@ def axuv_to_hdf(shot, filewrite=None, starttime=2):
     # Load equilibrium to determine the end of plasma time
     equ = sf.EQU(int(shot))
     # Add 1.5 second to be able to adjust the zero-level of the signals when there is no plasma
-    endtime = equ.time[-1] + 1.5
+    endtime = equ.time[-1] + 1.5 
 
     # Go through all signals from all diagnostics, take the shortened timesignal once
     # Save timesignal and all data signals to HDF5 starting from :starttime:
@@ -261,12 +254,9 @@ def axuv_to_hdf(shot, filewrite=None, starttime=2):
             hierarchy_d = '/'.join([shot, key, sig + '_data']) 
             try:
                 f.create_dataset(hierarchy_d, data=data)
-                print(CURSOR_UP_ONE + ERASE_LINE + CURSOR_UP_ONE + ERASE_LINE + CURSOR_UP_ONE + ERASE_LINE 
-                      + CURSOR_UP_ONE + ERASE_LINE, end= '\r')
                 print('\033[32mCreated dataset for ' + hierarchy_d + '\033[0m')
 
             except:
-                print(CURSOR_UP_ONE + ERASE_LINE + CURSOR_UP_ONE + ERASE_LINE, end= '\r')
                 f.create_dataset(hierarchy_d, data=np.zeros([signallength]))
                 print('\033[31mWARNING! Could not create dataset for ' + hierarchy_d 
                       + '\033[0m\nValues have been substituted by zeros')
@@ -285,7 +275,7 @@ def moving_average(array, window_size=3):
 
     # Pad the array with zeros on both sides
     padded_arr = np.zeros(length + window_size - 1)
-    padded_arr[displacement:-displacement] = arr
+    padded_arr[displacement:-displacement] = array
 
     # Initialize an empty array to store moving averages
     # Same length as initial array
@@ -299,12 +289,12 @@ def moving_average(array, window_size=3):
         # Store the average of current window in moving average array
         moving_averages[i] = window_average
 
-return moving_averages
+    return moving_averages
     
 def calibrate_and_smooth(shotno, fileread=None, filewrite=None, savgol=True):
     """Moves all signals by an offset based on averaging when there is no plasma
     Calibrates gains based on the CSV gains files generated from #40989 flat-top
-    Smooths both the 'new' and the 'old' signals with different Savitzky-Golay filters or with moving average
+    Smooths both the 'new' and the 'old' signals with Gaussian smoothing
     Cuts off 1 second at the end then saves the smoothed data and the timesignals into a new HDF5 file
 
     Can be used from #40342 until #41307
@@ -366,9 +356,9 @@ def calibrate_and_smooth(shotno, fileread=None, filewrite=None, savgol=True):
                     data = savgol_filter(data, 31, 7)
             else:
                 if diagname in NEWAXUV:
-                    data = moving_average(data * gains[i], 9)
+                    data = moving_average(data * gains[i], 21)
                 else:
-                    data = savgol_filter(data, 7)
+                    data = moving_average(data, 21)
 
             fw.create_dataset(hierarchy, data=data)
             print('{}/{} signals calibrated and written to HDF5'.format(i + 1, numofsignals), end='\r')

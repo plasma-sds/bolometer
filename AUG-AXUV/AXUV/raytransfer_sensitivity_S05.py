@@ -1,5 +1,15 @@
-# This script is used for calculating sensitivity matrices for all AXUV didoes in DHT and D16
-# Sector 16 of AUG
+# This script is used for calculating sensitivity matrices for all AXUV didoes in DHC and DVC
+# Sector 5 of AUG
+
+from pandas.core.series import Series
+from pandas.core.frame import DataFrame
+from pandas.core.series import Series
+from pandas.core.frame import DataFrame
+from matplotlib.axes._axes import Axes
+
+
+from matplotlib.image import AxesImage
+
 
 from numpy._typing._array_like import NDArray
 import os
@@ -32,10 +42,8 @@ plt.rcParams.update({'font.size': 14, "figure.dpi" : 150,
 #%matplotlib widget
 plt.close('all')
 
+# data is only needed for masking the sensitivity matrix
 DATADIR = "data/"
-SAVEDIR = DATADIR + "output/"
-INPUT_FILENAME = "data/step02410_out.h5"
-print(INPUT_FILENAME)
 
 USE_CAD_MESH = True
 WALL_MATERIAL = AbsorbingSurface()
@@ -106,7 +114,7 @@ def interpolate_parameters(points, resolution_R, resolution_z, neonlist, eTemp, 
     return interpolated_neon, interpolated_eTemp, interpolated_eDens
 
 # Plotting
-def plot_interpolated(interpolated, title=None, cbarlabel=None, gc_d_lines=None, show=True):
+def plot_interpolated(interpolated, title: str="", cbarlabel: str="", gc_d_lines=None, show=True):
     """
     Plots interpolated values along with the contours of plasma facing components.
     Takes the values, the figure title and colorbar label as parameters.
@@ -546,9 +554,9 @@ def make_axuv_camera_box(sensor_angles, sensor_distances, signalnames, slit_id, 
 
     return diode_camera
 
-def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
+def create_observable_world_S5(cad_mesh=USE_CAD_MESH, show_plots=False):
     """
-    Creates world with cameras in sector 16 (DHT, D16)
+    Creates world with cameras in sector 5 (DHC, DVC)
 
     Can be changed to work for other sectors by adding the other camera names
     However, one would have to also apply toroidal rotation to those cameras
@@ -558,9 +566,9 @@ def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
     print("Creating world with cameras...")
     world = World()
 
-    # Set up horizontal (DHT) and vertical (D16) AXUV cameras in sector 16 (SPI sector)
+    # Set up horizontal (DHC) and vertical (DVC) AXUV cameras in sector 5
     cameras = []
-    for camera_name in ["DHT"]:
+    for camera_name in ["DHC"]:
         angles, distances, signalnames, forward_v, camera_origin, up_v = get_sensor_data(camera_name)
         camera = make_axuv_camera_box(angles, distances, signalnames, camera_name)
         
@@ -571,7 +579,7 @@ def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
         camera.name = camera_name
         cameras.append(camera)
 
-    for camera_name in ["D16"]:
+    for camera_name in ["DVC"]:
         for i in range(3):
             angles, distances, signalnames, forward_v, camera_origin, up_v = get_sensor_data(camera_name, channelIDX=i*16)
             c_name = camera_name + "_" + str(i+1)
@@ -660,7 +668,7 @@ polygon_minimum = shapely.geometry.Polygon(convex_hull)
 polygon = polygon_minimum.buffer(0.1, join_style=2)  # make the polygon a bit bigger (by 2%)
 
 # Dummy world for the voxels
-world, cameras = create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False)
+world, cameras = create_observable_world_S5(cad_mesh=USE_CAD_MESH, show_plots=False)
 
 
 ########################################################################
@@ -766,7 +774,7 @@ wavelengths = np.unique(np.array([*get_spectrum_part(0),*get_spectrum_part(1),*g
 energies_eV = 1239.8 / wavelengths
 total_wavelength_bins = len(wavelengths) - 1
 
-HDF5_PATH = "raytransfer_S16_reflections_highres.h5"
+HDF5_PATH = "raytransfer_S05_reflections_lowres.h5"
 
 # === One-time file setup ===
 if not os.path.exists(HDF5_PATH):
