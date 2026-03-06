@@ -622,6 +622,7 @@ def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
 if __name__ == "__main__":
     mask_negative = True
     test_uniform = False
+    print(INPUT_FILENAME)
     with h5py.File(INPUT_FILENAME, "r") as f:
         majorR = f["R"][()][:, np.newaxis]
         zaxis = f["Z"][()][:, np.newaxis]
@@ -640,9 +641,11 @@ if __name__ == "__main__":
         
         eTemp = f["Te"][()][:, np.newaxis]
         eDens = f["ne"][()][:, np.newaxis]
-        try:
-            SI_time = f["time"][()][0]
-        except:
+        if "time" in f:
+            SI_time = f["time"][()]
+        elif "t_now" in f:
+            SI_time = f["t_now"][()]
+        else:
             SI_time = INPUT_FILENAME.strip(CURRENTDIR+'/input/output_step').strip('_out.h5')
 
     if mask_negative:
@@ -905,7 +908,11 @@ if __name__ == "__main__":
             measured_spectra[i, j] = np.sum(sensitivity_matrix[i, :, j] * emissions[:, j])
 
     # Saving the emission data as HDF5
-    with h5py.File(SAVEDIR + "raytransfer_emissions_highres_1eV_" + "{:.6f}".format(SI_time) + ".h5", "w") as file:
+    if type(SI_time) is not str:
+        SI_time: str = "{:.6f}".format(SI_time)
+    savename: str = SAVEDIR + "raytransfer_emissions_highres_1eV_" + SI_time + ".h5"
+    print(savename)
+    with h5py.File(savename, "w") as file:
         file.create_dataset("emissions", data=emissions)
         file.create_dataset("wavelengths", data=wavelengths)
         file.create_dataset("energies", data=energies_eV)
