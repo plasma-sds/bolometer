@@ -803,14 +803,14 @@ for j in range(total_wavelength_bins):
     i = 0
     for camera in cameras:
         for foil in camera:
-            print(f"Calculating sensitivity for {foil.name}...", end="\r")
+            print(f"{j+1}/{total_wavelength_bins} Calculating sensitivity for {foil.name}...", end="\n")
             foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
             foil.min_wavelength = wavelengths[j]
             foil.max_wavelength = wavelengths[j+1]
             foil.spectral_bins = ray_transfer_grid.bins
             foil.spectral_rays = 1
             foil.pixel_samples = 1e6
-            foil.ray_max_depth = 50
+            foil.ray_max_depth = 10
             foil.observe()
             sensitivity_matrix[i, :, j] = foil.pipelines[0].matrix
             i += 1
