@@ -13,3 +13,4 @@ output/
 create.py
 *.xlsx
 *.out
+slurm*
