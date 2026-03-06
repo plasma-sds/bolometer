@@ -11,3 +11,5 @@ aug/
 *.gif
 output/
 create.py
+*.xlsx
+*.out
