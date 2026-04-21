@@ -1,8 +1,7 @@
-# This script is used for calculating sensitivity matrices for all AXUV didoes in DHT and D16
+# This script is used for calculating sensitivity matrices
+# Sector 16 of AUG - AXUV didoes in DHT and D16
 
 import os
-import sys
-import csv
 import h5py
 import math
 import pickle
@@ -10,31 +9,22 @@ import shapely
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import cherab.core.atomic.elements as elements
 
-from matplotlib import cm
+from pathlib import Path
+
 from scipy.spatial import ConvexHull
 from scipy.interpolate import griddata
-from scipy.constants import electron_mass, atomic_mass
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from mpl_toolkits.mplot3d import Axes3D
 
 from raysect.core import Point2D, Point3D, Vector3D, rotate_basis, translate
-from raysect.core.math.function.float import Interpolator2DArray
-from raysect.optical import World, Spectrum
+from raysect.optical import World
 from raysect.optical.material import AbsorbingSurface
 from raysect.primitive import Box, Subtract, Mesh
-from raysect.optical.observer import SpectralPowerPipeline0D
 
-from cherab.openadas import OpenADAS
-from cherab.core import Species, Maxwellian, Plasma, Line
-from cherab.core.math import sample3d, AxisymmetricMapper
-from cherab.core.model import ExcitationLine, GaussianLine, RecombinationLine, Bremsstrahlung
 from cherab.tools.observers import BolometerCamera, BolometerSlit, BolometerFoil
 from cherab.tools.primitives import axisymmetric_mesh_from_polygon
 from cherab.tools.raytransfer import RayTransferCylinder, RayTransferPipeline0D
 
-from cad_files import *
+from axuv.cad_files import import_aug_mesh
 
 
 plt.rcParams.update({'font.size': 14, "figure.dpi" : 150,
@@ -42,24 +32,24 @@ plt.rcParams.update({'font.size': 14, "figure.dpi" : 150,
 #%matplotlib widget
 plt.close('all')
 
-DATADIR = str(os.environ.get("datadir")) + "/"
-CURRENTDIR = DATADIR + str(os.environ.get("currentdir")) + "/"
-SAVEDIR = CURRENTDIR + "output/"
-INPUT_FILENAME = str(sys.argv[1])
+DATADIR = "data/"
+SAVEDIR = DATADIR + "output/"
+INPUT_FILENAME = "data/step02410_out.h5"
+print(INPUT_FILENAME)
 
-RAYTRANSFER_PATH = DATADIR + "raytransfer_S16_reflections_highres.h5"
 USE_CAD_MESH = True
+WALL_MATERIAL = AbsorbingSurface()
 
 # Set the pipeline to be used by the diodes
-PIPELINES = [RayTransferPipeline0D()]
+PIPELINES: list = [RayTransferPipeline0D()]
 
 # Loading diode geometry data into pandas dataframe for easier filtering
 AXUV_DATAFILE = DATADIR + "AXUV_LOS_geom.txt"
 try:
     AXUV_DF = pd.read_csv(AXUV_DATAFILE, sep=r"\s+", engine='python').drop(columns=["act", "con", "F", "Foil_ID", 
                                                                                     "R_Kabel", "U_Gen.", "Faktor"])
-except:
-    print("Could not load AXUV geometry datafile")
+except Exception as e:
+    print(f"Could not load AXUV geometry datafile from {AXUV_DATAFILE}: {e}")
     
 # Setting up geometry limits in the poloidal cross section
 POLOIDAL_RMIN = 1
@@ -116,7 +106,7 @@ def interpolate_parameters(points, resolution_R, resolution_z, neonlist, eTemp, 
     return interpolated_neon, interpolated_eTemp, interpolated_eDens
 
 # Plotting
-def plot_interpolated(interpolated, title=None, cbarlabel=None, gc_d_lines=None, show=True):
+def plot_interpolated(interpolated, title="", cbarlabel="", gc_d_lines=None, show=True):
     """
     Plots interpolated values along with the contours of plasma facing components.
     Takes the values, the figure title and colorbar label as parameters.
@@ -234,18 +224,18 @@ def get_sensor_data(sensor, channelIDX=None):
     for example DHT
     """
 
-    df_0 = AXUV_DF[AXUV_DF['Cam'].str.contains(sensor, na=False)]
+    df_0 = AXUV_DF.loc[AXUV_DF['Cam'].str.contains(sensor, na=False)]
     if channelIDX is not None:
-        df = df_0[df_0['chan'].isin(range(channelIDX + 1, channelIDX + 17))]
+        df = df_0.loc[df_0['chan'].isin(range(channelIDX + 1, channelIDX + 17))]
     else:
         df = df_0
     angles = df['alpha'].to_numpy()
     distances = df['d(Folie-Blende)'].to_numpy()
     signalnames = df['RAW'].to_list()
-
+    
     n = len(df)
     i1, i2 = n // 2 - 1, n // 2
-
+    
     df_mid1 = df.iloc[i1]
     df_mid2 = df.iloc[i2]
 
@@ -256,14 +246,12 @@ def get_sensor_data(sensor, channelIDX=None):
     R2b, phi2b, z2b = df_mid2['R_end'], df_mid2['Phi_end'], df_mid2['z_end']
 
 
-    origin_cartesian = toroidal_to_cartesian(R1a, phi1a, z1a)  # New - toroidal_to_cartesian is a custom function
-    camera_origin = Vector3D(*origin_cartesian)  # New - Vector3D is from raysect
+    p1a = toroidal_to_cartesian(R1a, phi1a, z1a)
+    p2a = toroidal_to_cartesian(R2a, phi2a, z2a)
+    p1b = toroidal_to_cartesian(R1b, phi1b, z1b)
+    p2b = toroidal_to_cartesian(R2b, phi2b, z2b)
 
-    p1a = np.array(toroidal_to_cartesian(R1a, phi1a, z1a))
-    p2a = np.array(toroidal_to_cartesian(R2a, phi2a, z2a))
-
-    p1b = np.array(toroidal_to_cartesian(R1b, phi1b, z1b))
-    p2b = np.array(toroidal_to_cartesian(R2b, phi2b, z2b))
+    camera_origin = Vector3D(*p1a)
 
     v1 = p2a - p1a
     v2 = p2b - p1b
@@ -312,14 +300,14 @@ def make_axuv_camera(sensor_angles, sensor_distances, signalnames, slit_id, dete
         slit_y = SLIT_HEIGHT_Y_VERT
 
     slit_x = SLIT_WIDTH_X
-    top_x = slit_x  # just to have a small edge around the slit
-    top_y = slit_y 
+    material_width = 1e-6
+    top_x = slit_x / 2 + material_width  # let's not have any edge around the slit
+    top_y = slit_y / 2 + material_width
 
     inner_back_x = FRUSTUM_WIDTH_X / 2
     inner_back_y = BOX_HEIGHT_Y / 2
     inner_depth = BOX_DEPTH
 
-    material_width = 1e-6
     outer_back_x = inner_back_x + material_width
     outer_back_y = inner_back_y + material_width
     outer_depth = inner_depth + material_width
@@ -416,14 +404,8 @@ def make_axuv_camera(sensor_angles, sensor_distances, signalnames, slit_id, dete
     # Hollow out the box, in this case frustum
     camera_box = Subtract(camera_box_outer, camera_box_inner)
 
-    # The slit is a hole in the box
-    if slit_id in ["DHT", "DHC"]:
-        slit_height_y = SLIT_HEIGHT_Y_HORIZ
-    else:
-        slit_height_y = SLIT_HEIGHT_Y_VERT
-
-    aperture = Box(lower=Point3D(-SLIT_WIDTH_X / 2, -slit_height_y / 2, -1e-5),
-                   upper=Point3D(SLIT_WIDTH_X / 2, slit_height_y / 2, 1e-5))
+    aperture = Box(lower=Point3D(-SLIT_WIDTH_X / 2, -slit_y / 2, -1e-5),
+                   upper=Point3D(SLIT_WIDTH_X / 2, slit_y / 2, 1e-5))
     camera_box = Subtract(camera_box, aperture)
 
     camera_box.material = AbsorbingSurface()
@@ -570,28 +552,25 @@ def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
 
     # Set up horizontal (DHT) and vertical (D16) AXUV cameras in sector 16 (SPI sector)
     cameras = []
-    for camera_name in ["DHT"]:
-        angles, distances, signalnames, forward_v, camera_origin, up_v = get_sensor_data(camera_name)
-        camera = make_axuv_camera_box(angles, distances, signalnames, camera_name)
+    simulated_cameras = ["DHT", "D16"]  # Sector 16 cameras
+    for camera_name in simulated_cameras:
+        if camera_name in ["D16", "DVC"]:
+            # D16 and DVC are physically split into 3 sub-cameras of 16 channels each
+            for i in range(3):
+                angles, distances, signalnames, forward_v, camera_origin, up_v = get_sensor_data(camera_name, channelIDX=i * 16)
+                c_name = f"{camera_name}_{i + 1}"
+                camera = make_axuv_camera(angles, distances, signalnames, c_name)
+                camera.transform = translate(*camera_origin) * rotate_basis(forward=forward_v, up=up_v)
+                camera.parent = world
+                camera.name = c_name
+                cameras.append(camera)
         
-        # Rotate and move camera into position
-        transform_camera = translate(*camera_origin) * rotate_basis(forward=forward_v, up=up_v)
-        camera.transform = transform_camera
-        camera.parent = world
-        camera.name = camera_name
-        cameras.append(camera)
-
-    for camera_name in ["D16"]:
-        for i in range(3):
-            angles, distances, signalnames, forward_v, camera_origin, up_v = get_sensor_data(camera_name, channelIDX=i*16)
-            c_name = camera_name + "_" + str(i+1)
-            camera = make_axuv_camera(angles, distances, signalnames, c_name)
-
-            # Rotate and move camera into position
-            transform_camera = translate(*camera_origin) * rotate_basis(forward=forward_v, up=up_v)
-            camera.transform = transform_camera
+        else:
+            angles, distances, signalnames, forward_v, camera_origin, up_v = get_sensor_data(camera_name)
+            camera = make_axuv_camera_box(angles, distances, signalnames, camera_name)
+            camera.transform = translate(*camera_origin) * rotate_basis(forward=forward_v, up=up_v)
             camera.parent = world
-            camera.name = c_name
+            camera.name = camera_name
             cameras.append(camera)
 
     if cad_mesh is True:
@@ -618,304 +597,227 @@ def create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False):
         show_camera_lines_of_sight(cameras)
 
     return world, cameras
+    
+def get_spectrum_part(part, min_wavelengths, max_wavelengths, spectral_bins):
+    return np.linspace(min_wavelengths[part], max_wavelengths[part], spectral_bins)
 
-if __name__ == "__main__":
-    mask_negative = True
-    test_uniform = False
-    print(INPUT_FILENAME)
-    with h5py.File(INPUT_FILENAME, "r") as f:
-        majorR = f["R"][()][:, np.newaxis]
-        zaxis = f["Z"][()][:, np.newaxis]
 
-        neon0 = f["Ne0"][()][:, np.newaxis]
-        neon1 = f["Ne1"][()][:, np.newaxis]
-        neon2 = f["Ne2"][()][:, np.newaxis]
-        neon3 = f["Ne3"][()][:, np.newaxis]
-        neon4 = f["Ne4"][()][:, np.newaxis]
-        neon5 = f["Ne5"][()][:, np.newaxis]
-        neon6 = f["Ne6"][()][:, np.newaxis]
-        neon7 = f["Ne7"][()][:, np.newaxis]
-        neon8 = f["Ne8"][()][:, np.newaxis]
-        neon9 = f["Ne9"][()][:, np.newaxis]
-        neon10 = f["Ne10"][()][:, np.newaxis]
-        
-        eTemp = f["Te"][()][:, np.newaxis]
-        eDens = f["ne"][()][:, np.newaxis]
-        if "time" in f:
-            SI_time = f["time"][()]
-        elif "t_now" in f:
-            SI_time = f["t_now"][()]
-        else:
-            SI_time = INPUT_FILENAME.strip(CURRENTDIR+'/input/output_step').strip('_out.h5')
+def emission_function_3d_v3(x, y, z, part, plasma, min_wavelengths, max_wavelengths, spectral_bins):
+    """
+    Returns emission in units of W m^-3 sr^-1 nm^-1 for the given spatial point
+    and spectral window index `part`.
+    """
+    spectrum  = Spectrum(min_wavelengths[part], max_wavelengths[part], spectral_bins - 1)
+    direction = Vector3D(0, 0, 1)
+    point     = Point3D(x, y, z)
+    emission  = np.zeros(spectral_bins - 1)
+    for model in plasma.models:
+        emission += model.emission(point, direction, spectrum.new_spectrum()).samples
+    return emission
 
-    if mask_negative:
-        eTemp = np.maximum(eTemp, 1.)
-        eDens = np.maximum(eDens, 0)
-        neon0 = np.maximum(neon0, 0)
-        neon1 = np.maximum(neon1, 0)
-        neon2 = np.maximum(neon2, 0)
-        neon3 = np.maximum(neon3, 0)
-        neon4 = np.maximum(neon4, 0)
-        neon5 = np.maximum(neon5, 0)
-        neon6 = np.maximum(neon6, 0)
-        neon7 = np.maximum(neon7, 0)
-        neon8 = np.maximum(neon8, 0)
-        neon9 = np.maximum(neon9, 0)
-        neon10 = np.maximum(neon10, 0)
+timestep = "02410"
+# loading JOREK output data
+print(timestep)
+fname = "step" + timestep + "_out.h5"
+filepath = "data/" + fname
+with h5py.File(filepath, "r") as f:
+    majorR = f["R"][()][108:, np.newaxis]
+    zaxis = f["Z"][()][108:, np.newaxis]
 
-    # Values for uniform test
-    # electron density: 1e+20 m^-3
-    # electron temperature: 10 eV
-    # Ne 0 density: 7e+09 m^-3
-    # Ne 1 density: 1e+15 m^-3
-    # Ne 2 density: 1e+18 m^-3
-    # Ne 3 density: 3e+18 m^-3
-    # Ne 4 density: 2e+18 m^-3
-    # Ne 5 density: 1e+18 m^-3
-    # Ne 6 density: 6e+17 m^-3
-    # Ne 7 density: 5e+17 m^-3
-    # Ne 8 density: 2e+17 m^-3
-    # Ne 9 density: 5e+14 m^-3
-    # Ne 10 density: 1e+12 m^-3
+    neon0 = f["Ne0"][()][108:, np.newaxis]
+    neon1 = f["Ne1"][()][108:, np.newaxis]
+    neon2 = f["Ne2"][()][108:, np.newaxis]
+    neon3 = f["Ne3"][()][108:, np.newaxis]
+    neon4 = f["Ne4"][()][108:, np.newaxis]
+    neon5 = f["Ne5"][()][108:, np.newaxis]
+    neon6 = f["Ne6"][()][108:, np.newaxis]
+    neon7 = f["Ne7"][()][108:, np.newaxis]
+    neon8 = f["Ne8"][()][108:, np.newaxis]
+    neon9 = f["Ne9"][()][108:, np.newaxis]
+    neon10 = f["Ne10"][()][108:, np.newaxis]
+    
+    eTemp = f["Te"][()][108:, np.newaxis]
+    eDens = f["ne"][()][108:, np.newaxis]
 
-    if test_uniform:
-        eTemp.fill(10.)
-        eDens.fill(1e20)
-        neon0.fill(7e9)
-        neon1.fill(1e15)
-        neon2.fill(1e18)
-        neon3.fill(3e18)
-        neon4.fill(2e18)
-        neon5.fill(1e18)
-        neon6.fill(6e17)
-        neon7.fill(5e17)
-        neon8.fill(2e17)
-        neon9.fill(5e14)
-        neon10.fill(1e12)
+neonlist = [neon0, neon1, neon2, neon3, neon4, neon5, neon6, neon7, neon8, neon9, neon10]
 
-    neonlist = [neon0, neon1, neon2, neon3, neon4, neon5, neon6, neon7, neon8, neon9, neon10]
+# Setting up interpolation of JOREK data
+# In this case the vertical and horizontal distances between the gridpoints will be the same
+# Later the voxel grid will have the same dimensions, but will be masked where there is no plasma
+# this results in ~4 GB memory allocation for the creation of the ~4000 element voxel grid 
+# NOTE Doubling the total number of grid points results in a 2^2=4 times increase in the memory needed!
+# NOTE Doubling the resolution in both directions results in a (2*2)^2=16 times increase!
+resolution_R = 60
+resolution_z = 110
 
-    # Setting up interpolation of JOREK data
-    # In this case the vertical and horizontal distances between the gridpoints will be the same
-    # Later the voxel grid will have the same dimensions, but will be masked where there is no plasma
-    # this results in ~4 GB memory allocation for the creation of the ~4000 element voxel grid 
-    # NOTE Doubling the total number of grid points results in a 2^2=4 times increase in the memory needed!
-    # NOTE Doubling the resolution in both directions results in a (2*2)^2=16 times increase!
-    resolution_R = 120
-    resolution_z = 220
+plasma_res_R: int=int(resolution_R)
+plasma_res_z: int=int(resolution_z)
 
-    plasma_res_R=int(resolution_R)
-    plasma_res_z=int(resolution_z)
+# The points at which the JOREK data is defined
+points: NDArray[Any] = np.hstack([majorR, zaxis])
 
-    # The points at which the JOREK data is defined
-    points = np.hstack([majorR, zaxis])
-
-    i_neon, i_eTemp, i_eDens = interpolate_parameters(points, plasma_res_R, plasma_res_z, neonlist,
+i_neon, i_eTemp, i_eDens = interpolate_parameters(points, plasma_res_R, plasma_res_z, neonlist,
                                                     eTemp, eDens, method="linear")
 
-    try:
-        with h5py.File(RAYTRANSFER_PATH, 'r') as h5f:
-            sensitivity_matrix = h5f["sensitivity_matrix"][()]
-            grid_centres = h5f["grid_centres"][()]
-            voxel_map = h5f["voxel_map"][()]
-            inverse_voxel_map = h5f["inverse_voxel_map"][()]
-            laplacian = h5f["laplacian"][()]
-            mask = h5f["mask"][()]
-            completed_bins = h5f["completed_bins"][()]
-        print("Sensitivity matrix loaded")
-    except:
-        print("Sensitivity matrix file not found!")
+# A convex hull is created around the JOREK datapoints to be used as boundary for the voxel grid later
+hull = ConvexHull(points)
+convex_hull = points[hull.vertices]
+polygon_minimum = shapely.geometry.Polygon(convex_hull)
+polygon = polygon_minimum.buffer(0.1, join_style=2)  # make the polygon a bit bigger (by 2%)
 
-    # A convex hull is created around the JOREK datapoints to be used as boundary for the voxel grid later
-    hull = ConvexHull(points)
-    convex_hull = points[hull.vertices]
+# Dummy world for the voxels
+world, cameras = create_observable_world(cad_mesh=USE_CAD_MESH, show_plots=False)
 
-    world, cameras = create_observable_world(cad_mesh=False, show_plots=False)    
 
-    print("Creating plasma...")
-    plasma = Plasma(parent=world)
-    plasma.atomic_data = OpenADAS(permit_extrapolation=True)
-    plasma_mesh = axisymmetric_mesh_from_polygon(convex_hull)
-    plasma.geometry = plasma_mesh
+########################################################################
+# Produce a voxel grid
+########################################################################
+print("Producing the voxel grid...")
+# Define the centres of each voxel, as an (nx, ny, 2) array
+nx = resolution_R
+ny = resolution_z
+cell_r, cell_dx = np.linspace(POLOIDAL_RMIN, POLOIDAL_RMAX, nx, retstep=True)
+cell_z, cell_dz = np.linspace(POLOIDAL_ZMIN, POLOIDAL_ZMAX, ny, retstep=True)
+cell_r_grid, cell_z_grid = np.broadcast_arrays(cell_r[:, None], cell_z[None, :])
+cell_centres = np.stack((cell_r_grid, cell_z_grid), axis=-1)  # (nx, ny, 2) array
 
-    linspace_R = np.linspace(POLOIDAL_RMIN, POLOIDAL_RMAX, resolution_R)
-    linspace_z = np.linspace(POLOIDAL_ZMIN, POLOIDAL_ZMAX, resolution_z)
+# Define the positions of the vertices of the voxels
+cell_vertices_r = np.linspace(cell_r[0] - 0.5 * cell_dx, cell_r[-1] + 0.5 * cell_dx, nx + 1)
+cell_vertices_z = np.linspace(cell_z[0] - 0.5 * cell_dz, cell_z[-1] + 0.5 * cell_dz, ny + 1)
 
-    interpolated_eDens = i_eDens
-    interpolated_eTemp = i_eTemp
-    interpolated_neon = i_neon
+# Build a mask, only including cells within the wall
+# The inversions will be performed on the emission profile used in the
+# radiation_function.py demo, so we'll trim the voxel grid down to the
+# emitting region using the shapely polygon
 
-    # No net velocity for any species
-    zero_velocity = Vector3D(0, 0, 0)
+grid_mask = np.empty(shape=(nx, ny), dtype=bool)
+for ix in range(nx):
+    for iy in range(ny):
+        point1 = shapely.geometry.Point([cell_vertices_r[ix], cell_vertices_z[iy]])
+        point2 = shapely.geometry.Point([cell_vertices_r[ix+1], cell_vertices_z[iy]])
+        point3 = shapely.geometry.Point([cell_vertices_r[ix], cell_vertices_z[iy+1]])
+        point4 = shapely.geometry.Point([cell_vertices_r[ix+1], cell_vertices_z[iy+1]])
+        if polygon.contains(point1) or polygon.contains(point2) or polygon.contains(point3) or polygon.contains(point4):
+            grid_mask[ix, iy] = True
+        else:
+            grid_mask[ix, iy] = False
 
-    deuterium_mass = elements.deuterium.atomic_weight * atomic_mass
-    neon_mass = elements.neon.atomic_weight * atomic_mass
+# The RayTransferCylinder object is fully 3D, but for simplicity we're only
+# working in 2D as this case is axisymmetric. It is easy enough to pass 3D
+# views of our 2D data into the RayTransferCylinder object: we just ues a
+# numpy.newaxis (or equivalently, None) for the toroidal dimension.
+grid_mask = grid_mask[:, None, :]
 
-    extrap_x = 0.1
-    extrap_y = 0.1
+num_cells = grid_mask.sum()
 
-    # Calculate D1 density from quasi-neutrality
-    calculated_d1 = (interpolated_eDens - interpolated_neon[1, :, :] - 2 * interpolated_neon[2, :, :] 
-                    - 3 * interpolated_neon[3, :, :] - 4 * interpolated_neon[4, :, :] - 5 * interpolated_neon[5, :, :]
-                    - 6 * interpolated_neon[6, :, :] - 7 * interpolated_neon[7, :, :] - 8 * interpolated_neon[8, :, :]
-                    - 9 * interpolated_neon[9, :, :] - 10 * interpolated_neon[10, :, :])
+ray_transfer_grid = RayTransferCylinder(
+    radius_outer=cell_vertices_r[-1],
+    radius_inner=cell_vertices_r[0],
+    height=cell_vertices_z[-1] - cell_vertices_z[0],
+    n_radius=nx, n_height=ny, mask=grid_mask, n_polar=1,
+    transform=translate(0, 0, cell_vertices_z[0])
+)
 
-    # create 2D interpolators for the densities and temperature
-    e_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_eDens, 
-                                            interpolation_type="linear", extrapolation_type="nearest", 
-                                            extrapolation_range_x=extrap_x, extrapolation_range_y=extrap_y)
-    e_temperature_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_eTemp, "linear", "nearest", extrap_x, extrap_y)
+########################################################################
+# Produce a regularisation operator for inversions
+########################################################################
+# We'll use simple isotropic smoothing here, in which case an ND second
+# derivative operator (the laplacian operator) is appropriate. This can be
+# produced in the same way as in the geometry matrix with voxels demo, but we
+# show a faster vectorised method here.
 
-    ne0_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[0, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne1_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[1, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne2_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[2, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne3_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[3, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne4_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[4, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne5_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[5, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne6_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[6, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne7_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[7, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne8_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[8, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne9_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[9, :, :], "linear", "nearest", extrap_x, extrap_y)
-    ne10_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_neon[10, :, :], "linear", "nearest", extrap_x, extrap_y)
+# Pad the voxel map with a 1-cell-wide border.
+voxel_map_with_borders = - np.ones((nx + 2, ny + 2), dtype=int)
+voxel_map_with_borders[1:-1, 1:-1] = ray_transfer_grid.voxel_map[:, 0, :]
+inverted_voxel_map = ray_transfer_grid.invert_voxel_map()
+grid_laplacian = np.zeros((num_cells, num_cells))
 
-    de1_density_interp = Interpolator2DArray(linspace_R, linspace_z, calculated_d1, "linear", "nearest", extrap_x, extrap_y)
 
-    # map the 2D interpolators into 3D functions using the axisymmetry operator
-    e_density = AxisymmetricMapper(e_density_interp)
-    e_temperature = AxisymmetricMapper(e_temperature_interp)
+for ith_cell in range(num_cells):
+    # get the 2D mesh coordinates of this cell
+    ix, _, iy = inverted_voxel_map[ith_cell]
+    # we didn't map multiple cells into the same light source,
+    # so ix and iy are single-element arrays
+    ix = ix[0]
+    iy = iy[0]
 
-    ne0_density = AxisymmetricMapper(ne0_density_interp)
-    ne1_density = AxisymmetricMapper(ne1_density_interp)
-    ne2_density = AxisymmetricMapper(ne2_density_interp)
-    ne3_density = AxisymmetricMapper(ne3_density_interp)
-    ne4_density = AxisymmetricMapper(ne4_density_interp)
-    ne5_density = AxisymmetricMapper(ne5_density_interp)
-    ne6_density = AxisymmetricMapper(ne6_density_interp)
-    ne7_density = AxisymmetricMapper(ne7_density_interp)
-    ne8_density = AxisymmetricMapper(ne8_density_interp)
-    ne9_density = AxisymmetricMapper(ne9_density_interp)
-    ne10_density = AxisymmetricMapper(ne10_density_interp)
+    neighbours_2d = ([ix, ix, ix, ix + 1, ix + 1, ix + 2, ix + 2, ix + 2],
+                     [iy, iy + 1, iy + 2, iy, iy + 2, iy, iy + 1, iy + 2])
 
-    de1_density = AxisymmetricMapper(de1_density_interp)
+    neighbours_1d = voxel_map_with_borders[neighbours_2d]
+    neighbours_1d = neighbours_1d[neighbours_1d > -1]
 
-    # Set up the distributions to be Maxwellians
-    e_distribution = Maxwellian(e_density, e_temperature, zero_velocity, electron_mass)
+    grid_laplacian[ith_cell, neighbours_1d] = -1
+    grid_laplacian[ith_cell, ith_cell] = neighbours_1d.size
 
-    ne0_distribution = Maxwellian(ne0_density, e_temperature, zero_velocity, neon_mass)
-    ne1_distribution = Maxwellian(ne1_density, e_temperature, zero_velocity, neon_mass)
-    ne2_distribution = Maxwellian(ne2_density, e_temperature, zero_velocity, neon_mass)
-    ne3_distribution = Maxwellian(ne3_density, e_temperature, zero_velocity, neon_mass)
-    ne4_distribution = Maxwellian(ne4_density, e_temperature, zero_velocity, neon_mass)
-    ne5_distribution = Maxwellian(ne5_density, e_temperature, zero_velocity, neon_mass)
-    ne6_distribution = Maxwellian(ne6_density, e_temperature, zero_velocity, neon_mass)
-    ne7_distribution = Maxwellian(ne7_density, e_temperature, zero_velocity, neon_mass)
-    ne8_distribution = Maxwellian(ne8_density, e_temperature, zero_velocity, neon_mass)
-    ne9_distribution = Maxwellian(ne9_density, e_temperature, zero_velocity, neon_mass)
-    ne10_distribution = Maxwellian(ne10_density, e_temperature, zero_velocity, neon_mass)
 
-    de1_distribution = Maxwellian(de1_density, e_temperature, zero_velocity, deuterium_mass)
+########################################################################
+# Calculate the geometry matrix for the grid
+########################################################################
+print("Calculating the geometry matrix...")
+# The ray transfer object must be in the same world as the bolometers
+ray_transfer_grid.parent = world
 
-    # Define the different plasma species
-    ne0_species = Species(elements.neon, 0, ne0_distribution)
-    ne1_species = Species(elements.neon, 1, ne1_distribution)
-    ne2_species = Species(elements.neon, 2, ne2_distribution)
-    ne3_species = Species(elements.neon, 3, ne3_distribution)
-    ne4_species = Species(elements.neon, 4, ne4_distribution)
-    ne5_species = Species(elements.neon, 5, ne5_distribution)
-    ne6_species = Species(elements.neon, 6, ne6_distribution)
-    ne7_species = Species(elements.neon, 7, ne7_distribution)
-    ne8_species = Species(elements.neon, 8, ne8_distribution)
-    ne9_species = Species(elements.neon, 9, ne9_distribution)
-    ne10_species = Species(elements.neon, 10, ne10_distribution)
+NUM_OF_DIODES = 96
 
-    de1_species = Species(elements.deuterium, 1, de1_distribution)
-
-    ##############################################################
-    # Get Neon lines from Photon Emissivity Coefficients datafiles
-    ##############################################################
-    neon_lines = []
-    with open(DATADIR + "ne.csv") as f:
-        reader = csv.reader(f)
-        for row in reader:
-            i, part1, part2 = row
-
-            neon_lines.append(ExcitationLine(Line(elements.neon, int(i), (part1, part2)), lineshape=GaussianLine))
-            neon_lines.append(RecombinationLine(Line(elements.neon, int(i), (part1, part2)), lineshape=GaussianLine))
-
-    # add all neon lines to the plasma + Bremsstrahlung
-    plasma.models = [
-        *neon_lines,
-        Bremsstrahlung()
-    ]
-
-    # define species, field and composition
-    plasma.b_field = Vector3D(0, 0, 0)
-    plasma.electron_distribution = e_distribution
-    plasma.composition = [ne0_species, ne1_species, ne2_species, ne3_species, ne4_species,
-                        ne5_species, ne6_species, ne7_species, ne8_species, ne9_species,
-                        ne10_species, de1_species]
-
-    # Define spectral measurements array - has to be size: num of diodes by spectral bins
-    NUM_OF_DIODES = sensitivity_matrix.shape[0]
+def get_spectrum_part(part):
     SPECTRAL_BINS = 100
-                                          # Approx photon energies in eV
+                                        # Approx photon energies in eV
     MIN_WAVELENGTHS = [0.25, 12.4, 124]   # 5000, 100, 10
     MAX_WAVELENGTHS = [12.4, 124, 1240]   # 100, 10, 1
 
-    def get_spectrum_part(part):
-        return np.linspace(MIN_WAVELENGTHS[part], MAX_WAVELENGTHS[part], SPECTRAL_BINS)
+    return np.linspace(MIN_WAVELENGTHS[part], MAX_WAVELENGTHS[part], SPECTRAL_BINS)
 
-    wavelengths = np.unique(np.array([*get_spectrum_part(0),*get_spectrum_part(1),*get_spectrum_part(2)]))
-    energies_eV = 1239.8 / wavelengths
-    total_wavelength_bins = len(wavelengths) - 1
+wavelengths = np.unique(np.array([*get_spectrum_part(0),*get_spectrum_part(1),*get_spectrum_part(2)]))
+energies_eV = 1239.8 / wavelengths
+total_wavelength_bins = len(wavelengths) - 1
 
-    def emission_function_3d_v3(x, y, z, part):
-        """
-        Provides emission in units of W m^-3 sr^-1 nm^-1
-        """
-        spectrum = Spectrum(MIN_WAVELENGTHS[part], MAX_WAVELENGTHS[part], SPECTRAL_BINS-1)
-        direction = Vector3D(0, 0, 1)
-        emission = np.zeros(SPECTRAL_BINS-1)
+HDF5_PATH = "raytransfer_S16_reflections_highres.h5"
 
-        for model in plasma.models:
-            point = Point3D(x, y, z)
-            emission += model.emission(point, direction, spectrum.new_spectrum()).samples
+# === One-time file setup ===
+if not os.path.exists(HDF5_PATH):
+    with h5py.File(HDF5_PATH, 'w') as h5f:
+        h5f.create_dataset("sensitivity_matrix", shape=(NUM_OF_DIODES, num_cells, total_wavelength_bins), dtype='f8')
+        h5f.create_dataset("grid_centres", data=cell_centres)
+        h5f.create_dataset("voxel_map", data=ray_transfer_grid.voxel_map)
+        h5f.create_dataset("inverse_voxel_map", data=ray_transfer_grid.invert_voxel_map())
+        h5f.create_dataset("laplacian", data=grid_laplacian)
+        h5f.create_dataset("mask", data=ray_transfer_grid.mask)
+        h5f.create_dataset("completed_bins", shape=(total_wavelength_bins,), dtype='i1')  # 0 = not done, 1 = done
+        h5f.create_dataset("wavelength_bin_edges", data=wavelengths)
+        h5f.create_dataset("energy_bin_edges_eV", data=energies_eV)
 
-        return emission
-        
-    emissions = np.zeros([inverse_voxel_map.shape[0], total_wavelength_bins])
+# === Main computation loop ===
+sensitivity_matrix = np.zeros([NUM_OF_DIODES, num_cells, total_wavelength_bins])
 
-    for i in range(inverse_voxel_map.shape[0]):
-        # Get the indices of the i-th voxel in the grid_centres array
-        aa = inverse_voxel_map[i, 0, 0]
-        cc = inverse_voxel_map[i, 2, 0]
+for j in range(total_wavelength_bins):
+    # Check if bin j is already completed
+    with h5py.File(HDF5_PATH, 'r') as h5f:
+        if h5f["completed_bins"][j]:
+            print(f"Skipping wavelength bin {j+1} (already completed)")
+            continue
 
-        # Get the real world coordinates corresponding to the i-th voxel
-        xi = grid_centres[aa, cc, 0]  # To get R coordinate
-        yi = 0  # Assume y coordinate is 0
-        zi = grid_centres[aa, cc, 1]  # To get z coordinate
+    print(f"Calculating for wavelength bin {j+1}/{total_wavelength_bins}")
+    i = 0
+    for camera in cameras:
+        for foil in camera:
+            print(f"Calculating sensitivity for {foil.name}...", end="\r")
+            foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
+            foil.min_wavelength = wavelengths[j]
+            foil.max_wavelength = wavelengths[j+1]
+            foil.spectral_bins = ray_transfer_grid.bins
+            foil.spectral_rays = 1
+            foil.pixel_samples = 1e6
+            foil.ray_max_depth = 50
+            foil.observe()
+            sensitivity_matrix[i, :, j] = foil.pipelines[0].matrix
+            i += 1
+            foil.max_wavelength = wavelengths[j+1] + 10
 
-        emission_in_point = np.zeros(total_wavelength_bins)
-        for part in range(3):
-            emission_in_point[part*99:(part+1)*99] = emission_function_3d_v3(xi, yi, zi, part)
+    # Open file just to save results for this bin
+    with h5py.File(HDF5_PATH, 'r+') as h5f:
+        h5f["sensitivity_matrix"][:, :, j] = sensitivity_matrix[:, :, j]
+        h5f["completed_bins"][j] = 1
+        h5f.flush()
 
-        emissions[i, :] = emission_in_point
-        print(str(i)+"/"+str(inverse_voxel_map.shape[0]), end="\r")
 
-    measured_spectra = np.zeros([NUM_OF_DIODES, total_wavelength_bins])
-    for i in range(NUM_OF_DIODES):
-        for j in range(total_wavelength_bins):
-            measured_spectra[i, j] = np.sum(sensitivity_matrix[i, :, j] * emissions[:, j])
-
-    # Saving the emission data as HDF5
-    if type(SI_time) is not str:
-        SI_time: str = "{:.6f}".format(SI_time)
-    savename: str = SAVEDIR + "raytransfer_emissions_highres_1eV_" + SI_time + ".h5"
-    print(savename)
-    with h5py.File(savename, "w") as file:
-        file.create_dataset("emissions", data=emissions)
-        file.create_dataset("wavelengths", data=wavelengths)
-        file.create_dataset("energies", data=energies_eV)
-        file.create_dataset("diode_measurements", data=measured_spectra)
-
-    print("\nSaved emission data.")
