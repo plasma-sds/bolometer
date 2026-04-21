@@ -1,6 +1,9 @@
-AXUV/data/*/
+axuv/data/*/
+*.obj
+axuv/data/AXUV_LOS_geom.txt
 Archive/
 *__pycache__/
+*.ipynb_checkpoints/
 *.vscode*
 *.pickle
 aug/
@@ -10,7 +13,9 @@ aug/
 *.png
 *.gif
 output/
+plots/
 create.py
 *.xlsx
 *.out
 slurm*
+pyrightconfig.json
