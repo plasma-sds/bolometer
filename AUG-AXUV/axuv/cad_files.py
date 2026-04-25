@@ -1,14 +1,11 @@
-
 import os
+from pathlib import Path
 
-from raysect.primitive import Mesh, import_stl
-from raysect.optical.material import AbsorbingSurface
 from raysect.optical.library.metal import RoughTungsten
 from raysect.optical.material import AbsorbingSurface
 from raysect.primitive import Mesh, import_stl
 
-
-CADMESH_PATH = "../"
+CADMESH_PATH = Path(__file__).parent.parent
 
 
 VESSEL = [
