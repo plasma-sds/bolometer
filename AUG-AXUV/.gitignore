@@ -20,3 +20,4 @@ create.py
 slurm*
 pyrightconfig.json
 *.egg-info
+.zed
