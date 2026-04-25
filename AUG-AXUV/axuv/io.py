@@ -1,26 +1,38 @@
 import os
 import pickle
-import h5py
-import numpy as np
-import pandas as pd
 from pathlib import Path
 
+import h5py
+import pandas as pd
 
-DATADIR    = str(os.environ.get("datadir"))    + "/"
-CURRENTDIR = DATADIR + str(os.environ.get("currentdir")) + "/"
-SAVEDIR    = CURRENTDIR + "output/"
+DATADIR_ENV = os.environ.get("datadir")
+if DATADIR_ENV is None:
+    DATADIR_ENV = str(Path(__file__).parent) + "/data"
+DATADIR = str(DATADIR_ENV) + "/"
+
+CURRENTDIR = DATADIR + "/" + str(os.environ.get("currentdir")) + "/"
+SAVEDIR = CURRENTDIR + "output/"
 
 RAYTRANSFER_PATH = DATADIR + "raytransfer_S05_lowres.h5"
 
 # Loading diode geometry data into a pandas DataFrame for easier filtering
 AXUV_DATAFILE = DATADIR + "AXUV_LOS_geom.txt"
-try:
-    AXUV_DF = pd.read_csv(
-        AXUV_DATAFILE, sep=r"\s+", engine="python"
-    ).drop(columns=["act", "con", "F", "Foil_ID", "R_Kabel", "U_Gen.", "Faktor"])
-except Exception as e:
-    print(e)
-    print("Could not load AXUV geometry datafile")
+
+
+def load_axuv_df() -> pd.DataFrame:
+    """Load and return the AXUV diode geometry DataFrame."""
+    try:
+        df = pd.read_csv(AXUV_DATAFILE, sep=r"\s+", engine="python").drop(
+            columns=["act", "con", "F", "Foil_ID", "R_Kabel", "U_Gen.", "Faktor"]
+        )
+        print(f"Loaded AXUV geometry datafile '{AXUV_DATAFILE}' with shape {df.shape}")
+        return df
+
+    except Exception as e:
+        raise RuntimeError(
+            f"Could not load AXUV geometry datafile '{AXUV_DATAFILE}': {e}"
+        ) from e
+
 
 # Plasma-facing component contours for poloidal-plane plots
 # Using Path(__file__).parent ensures this works regardless of CWD
