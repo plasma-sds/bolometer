@@ -213,8 +213,7 @@ am.plot_current(41000, start=2.3, end=2.45)
 
 ### Notes
 
-- `axuv_to_hdf` and `calibrate_and_smooth` in `io.py` are intentionally kept
-  verbatim pending a logic rewrite.
+- `axuv_to_hdf` and `calibrate_and_smooth` in `io.py` are due for a logic rewrite.
 - The `measurement/` directory contains standalone scripts and Jupyter
   notebooks that import from `axuv_measurement`.
 - The `radiation_inside_q2surface` function replaces the former pair
