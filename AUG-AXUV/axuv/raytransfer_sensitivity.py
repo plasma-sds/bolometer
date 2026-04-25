@@ -37,22 +37,25 @@ e.g.  raytransfer_S5_norefl.h5
 The file supports resuming: completed wavelength bins are skipped on re-run.
 """
 
-import os
 import argparse
-import h5py
-import shapely
-import numpy as np
+import os
 
+import h5py
+import numpy as np
+import shapely
+from cherab.tools.raytransfer import RayTransferCylinder, RayTransferPipeline0D
+from raysect.core import translate
 from scipy.spatial import ConvexHull
 
-from raysect.core import translate
-from cherab.tools.raytransfer import RayTransferCylinder, RayTransferPipeline0D
-
-from axuv.cameras import create_observable_world, SECTOR_CAMERAS
-from axuv.interpolation import POLOIDAL_RMIN, POLOIDAL_RMAX, POLOIDAL_ZMIN, POLOIDAL_ZMAX
-from axuv.io import AXUV_DF
+from axuv.cameras import SECTOR_CAMERAS, create_observable_world
+from axuv.interpolation import (
+    POLOIDAL_RMAX,
+    POLOIDAL_RMIN,
+    POLOIDAL_ZMAX,
+    POLOIDAL_ZMIN,
+)
+from axuv.io import load_axuv_df
 from axuv.plasma import get_spectrum_part
-
 
 # ── Spectral configuration ───────────────────────────────────────────────────
 SPECTRAL_BINS   = 100
@@ -69,7 +72,8 @@ def _parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--sectors", "-s",
+        "--sectors",
+        "-s",
         nargs="+",
         default=["S16"],
         choices=list(SECTOR_CAMERAS),
@@ -126,7 +130,8 @@ def _parse_args():
         help="Maximum ray recursion depth (relevant when --reflections is set).",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=str,
         default=None,
         metavar="PATH",
@@ -144,7 +149,7 @@ def _build_output_path(sectors: list, reflections: bool, output_arg) -> str:
     if output_arg is not None:
         return output_arg
     sector_tag = "_".join(sectors)
-    refl_tag   = "refl" if reflections else "norefl"
+    refl_tag = "refl" if reflections else "norefl"
     return f"raytransfer_{sector_tag}_{refl_tag}.h5"
 
 
@@ -157,18 +162,20 @@ def _load_jorek_hull(jorek_file: str) -> np.ndarray:
         R = np.asarray(f["R"]).ravel()
         Z = np.asarray(f["Z"]).ravel()
     points = np.column_stack([R, Z])
-    hull   = ConvexHull(points)
+    hull = ConvexHull(points)
     return points[hull.vertices]
 
 
 def _full_rectangular_hull() -> np.ndarray:
     """Returns the four corners of the full poloidal grid as the hull polygon."""
-    return np.array([
-        [POLOIDAL_RMIN, POLOIDAL_ZMIN],
-        [POLOIDAL_RMAX, POLOIDAL_ZMIN],
-        [POLOIDAL_RMAX, POLOIDAL_ZMAX],
-        [POLOIDAL_RMIN, POLOIDAL_ZMAX],
-    ])
+    return np.array(
+        [
+            [POLOIDAL_RMIN, POLOIDAL_ZMIN],
+            [POLOIDAL_RMAX, POLOIDAL_ZMIN],
+            [POLOIDAL_RMAX, POLOIDAL_ZMAX],
+            [POLOIDAL_RMIN, POLOIDAL_ZMAX],
+        ]
+    )
 
 
 def _build_voxel_grid(resolution_R: int, resolution_Z: int, hull_points: np.ndarray):
@@ -191,12 +198,14 @@ def _build_voxel_grid(resolution_R: int, resolution_Z: int, hull_points: np.ndar
     cell_r, cell_dx = np.linspace(POLOIDAL_RMIN, POLOIDAL_RMAX, nx, retstep=True)
     cell_z, cell_dz = np.linspace(POLOIDAL_ZMIN, POLOIDAL_ZMAX, ny, retstep=True)
     cell_r_grid, cell_z_grid = np.broadcast_arrays(cell_r[:, None], cell_z[None, :])
-    cell_centres = np.stack((cell_r_grid, cell_z_grid), axis=-1)   # (nx, ny, 2)
+    cell_centres = np.stack((cell_r_grid, cell_z_grid), axis=-1)  # (nx, ny, 2)
 
-    cell_vertices_r = np.linspace(cell_r[0] - 0.5 * cell_dx,
-                                  cell_r[-1] + 0.5 * cell_dx, nx + 1)
-    cell_vertices_z = np.linspace(cell_z[0] - 0.5 * cell_dz,
-                                  cell_z[-1] + 0.5 * cell_dz, ny + 1)
+    cell_vertices_r = np.linspace(
+        cell_r[0] - 0.5 * cell_dx, cell_r[-1] + 0.5 * cell_dx, nx + 1
+    )
+    cell_vertices_z = np.linspace(
+        cell_z[0] - 0.5 * cell_dz, cell_z[-1] + 0.5 * cell_dz, ny + 1
+    )
 
     # Buffer the hull polygon by 10 cm so edge voxels are not excluded
     polygon = shapely.geometry.Polygon(hull_points).buffer(0.1, join_style="mitre")
@@ -205,10 +214,12 @@ def _build_voxel_grid(resolution_R: int, resolution_Z: int, hull_points: np.ndar
     for ix in range(nx):
         for iy in range(ny):
             corners = [
-                shapely.geometry.Point(cell_vertices_r[ix],   cell_vertices_z[iy]),
-                shapely.geometry.Point(cell_vertices_r[ix+1], cell_vertices_z[iy]),
-                shapely.geometry.Point(cell_vertices_r[ix],   cell_vertices_z[iy+1]),
-                shapely.geometry.Point(cell_vertices_r[ix+1], cell_vertices_z[iy+1]),
+                shapely.geometry.Point(cell_vertices_r[ix], cell_vertices_z[iy]),
+                shapely.geometry.Point(cell_vertices_r[ix + 1], cell_vertices_z[iy]),
+                shapely.geometry.Point(cell_vertices_r[ix], cell_vertices_z[iy + 1]),
+                shapely.geometry.Point(
+                    cell_vertices_r[ix + 1], cell_vertices_z[iy + 1]
+                ),
             ]
             if any(polygon.contains(c) for c in corners):
                 grid_mask[ix, iy] = True
@@ -238,23 +249,29 @@ def _build_voxel_grid(resolution_R: int, resolution_Z: int, hull_points: np.ndar
         ix, _, iy = inverted_voxel_map[ith_cell]
         ix, iy = ix[0], iy[0]
         neighbours_2d = (
-            [ix, ix,   ix,   ix+1, ix+1, ix+2, ix+2, ix+2],
-            [iy, iy+1, iy+2, iy,   iy+2, iy,   iy+1, iy+2],
+            [ix, ix, ix, ix + 1, ix + 1, ix + 2, ix + 2, ix + 2],
+            [iy, iy + 1, iy + 2, iy, iy + 2, iy, iy + 1, iy + 2],
         )
         neighbours_1d = voxel_map_with_borders[neighbours_2d]
         neighbours_1d = neighbours_1d[neighbours_1d > -1]
         grid_laplacian[ith_cell, neighbours_1d] = -1
-        grid_laplacian[ith_cell, ith_cell]       = neighbours_1d.size
+        grid_laplacian[ith_cell, ith_cell] = neighbours_1d.size
 
     return ray_transfer_grid, cell_centres, grid_laplacian, num_cells
 
 
-def _init_output_file(hdf5_path: str, num_diodes: int, num_cells: int,
-                      total_wavelength_bins: int, cell_centres: np.ndarray,
-                      ray_transfer_grid: RayTransferCylinder,
-                      grid_laplacian: np.ndarray,
-                      wavelengths: np.ndarray, energies_eV: np.ndarray,
-                      diode_names: list) -> None:
+def _init_output_file(
+    hdf5_path: str,
+    num_diodes: int,
+    num_cells: int,
+    total_wavelength_bins: int,
+    cell_centres: np.ndarray,
+    ray_transfer_grid: RayTransferCylinder,
+    grid_laplacian: np.ndarray,
+    wavelengths: np.ndarray,
+    energies_eV: np.ndarray,
+    diode_names: list,
+) -> None:
     """
     Creates the output HDF5 file with all metadata datasets pre-allocated.
     Does nothing if the file already exists (supports resuming).
@@ -273,11 +290,13 @@ def _init_output_file(hdf5_path: str, num_diodes: int, num_cells: int,
             shape=(num_diodes, num_cells, total_wavelength_bins),
             dtype="f8",
         )
-        h5f.create_dataset("grid_centres",      data=cell_centres)
-        h5f.create_dataset("voxel_map",         data=ray_transfer_grid.voxel_map)
-        h5f.create_dataset("inverse_voxel_map", data=ray_transfer_grid.invert_voxel_map())
-        h5f.create_dataset("laplacian",         data=grid_laplacian)
-        h5f.create_dataset("mask",              data=ray_transfer_grid.mask)
+        h5f.create_dataset("grid_centres", data=cell_centres)
+        h5f.create_dataset("voxel_map", data=ray_transfer_grid.voxel_map)
+        h5f.create_dataset(
+            "inverse_voxel_map", data=ray_transfer_grid.invert_voxel_map()
+        )
+        h5f.create_dataset("laplacian", data=grid_laplacian)
+        h5f.create_dataset("mask", data=ray_transfer_grid.mask)
         # completed_bins tracks progress for resuming: 0 = pending, 1 = done
         h5f.create_dataset(
             "completed_bins",
@@ -285,7 +304,7 @@ def _init_output_file(hdf5_path: str, num_diodes: int, num_cells: int,
             dtype="i1",
         )
         h5f.create_dataset("wavelength_bin_edges", data=wavelengths)
-        h5f.create_dataset("energy_bin_edges_eV",  data=energies_eV)
+        h5f.create_dataset("energy_bin_edges_eV", data=energies_eV)
         h5f.create_dataset(
             "diode_names",
             data=np.array([n.encode("utf-8") for n in diode_names]),
@@ -295,16 +314,20 @@ def _init_output_file(hdf5_path: str, num_diodes: int, num_cells: int,
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     args = _parse_args()
 
-    SECTORS       = args.sectors
-    USE_CAD_MESH  = args.reflections
+    SECTORS = args.sectors
+    USE_CAD_MESH = args.reflections
     PIXEL_SAMPLES = args.pixel_samples
     RAY_MAX_DEPTH = args.ray_max_depth
-    RESOLUTION_R  = args.resolution_r
-    RESOLUTION_Z  = args.resolution_z
-    HDF5_PATH     = _build_output_path(SECTORS, USE_CAD_MESH, args.output)
+    RESOLUTION_R = args.resolution_r
+    RESOLUTION_Z = args.resolution_z
+    HDF5_PATH = _build_output_path(SECTORS, USE_CAD_MESH, args.output)
+
+    # Load the AXUV diode geometry data
+    axuv_df = load_axuv_df()
 
     # ── Build world with cameras ─────────────────────────────────────────────
     world, cameras = create_observable_world(
@@ -316,13 +339,14 @@ if __name__ == "__main__":
 
     # Count diodes dynamically so the matrix size is always correct
     NUM_OF_DIODES = sum(len(cam.foil_detectors) for cam in cameras)
-    diode_names = [
-        foil.detector_id
-        for camera in cameras
-        for foil in camera.foil_detectors
-    ]
-    print(f"Sectors: {SECTORS}  |  Total diodes: {NUM_OF_DIODES}  |  "
-          f"Reflections: {USE_CAD_MESH}")
+    print(
+        f"Sectors: {SECTORS}  |  Total diodes: {NUM_OF_DIODES}  |  "
+        f"Reflections: {USE_CAD_MESH}"
+    )
+    for camera in cameras:
+        print(f"  {camera.name}: {len(camera.foil_detectors)} diodes")
+
+    diode_names = [foil.name for camera in cameras for foil in camera.foil_detectors]
 
     # ── Build voxel grid ─────────────────────────────────────────────────────
     print("Producing the voxel grid...")
@@ -339,19 +363,32 @@ if __name__ == "__main__":
     print(f"  Active voxels: {num_cells} / {RESOLUTION_R * RESOLUTION_Z}")
 
     # ── Wavelength grid ──────────────────────────────────────────────────────
-    wavelengths = np.unique(np.concatenate([
-        get_spectrum_part(i, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS)
-        for i in range(3)
-    ]))
-    energies_eV           = 1239.8 / wavelengths
+    wavelengths = np.unique(
+        np.concatenate(
+            [
+                get_spectrum_part(i, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS)
+                for i in range(3)
+            ]
+        )
+    )
+    energies_eV = 1239.8 / wavelengths
     total_wavelength_bins = len(wavelengths) - 1
-    print(f"  Wavelength bins: {total_wavelength_bins}  "
-          f"({wavelengths[0]:.3f}–{wavelengths[-1]:.3f} nm)")
+    print(
+        f"  Wavelength bins: {total_wavelength_bins}  "
+        f"({wavelengths[0]:.3f}–{wavelengths[-1]:.3f} nm)"
+    )
 
     # ── Initialise output file (no-op if it already exists) ──────────────────
     _init_output_file(
-        HDF5_PATH, NUM_OF_DIODES, num_cells, total_wavelength_bins,
-        cell_centres, ray_transfer_grid, grid_laplacian, wavelengths, energies_eV,
+        HDF5_PATH,
+        NUM_OF_DIODES,
+        num_cells,
+        total_wavelength_bins,
+        cell_centres,
+        ray_transfer_grid,
+        grid_laplacian,
+        wavelengths,
+        energies_eV,
         diode_names,
     )
 
@@ -364,23 +401,26 @@ if __name__ == "__main__":
     for j in range(total_wavelength_bins):
         with h5py.File(HDF5_PATH, "r") as h5f:
             if h5f["completed_bins"][j]:
-                print(f"Skipping bin {j+1}/{total_wavelength_bins} (already done)")
+                print(f"Skipping bin {j + 1}/{total_wavelength_bins} (already done)")
                 continue
 
         wl_lo, wl_hi = wavelengths[j], wavelengths[j + 1]
-        print(f"\nBin {j+1}/{total_wavelength_bins}: {wl_lo:.4f}–{wl_hi:.4f} nm")
+        print(f"\nBin {j + 1}/{total_wavelength_bins}: {wl_lo:.4f}–{wl_hi:.4f} nm")
 
         diode_index = 0
         for camera in cameras:
             for foil in camera.foil_detectors:
-                print(f"  [{diode_index+1}/{NUM_OF_DIODES}] {foil.detector_id}", end="\r")
-                foil.pipelines    = [RayTransferPipeline0D(kind=foil.units)]
+                print(
+                    f"  [{diode_index + 1}/{NUM_OF_DIODES}] {foil.name}",
+                    end="\r",
+                )
+                foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
                 foil.min_wavelength = wl_lo
                 foil.max_wavelength = wl_hi
-                foil.spectral_bins  = ray_transfer_grid.bins
-                foil.spectral_rays  = 1
-                foil.pixel_samples  = PIXEL_SAMPLES
-                foil.ray_max_depth  = RAY_MAX_DEPTH
+                foil.spectral_bins = ray_transfer_grid.bins
+                foil.spectral_rays = 1
+                foil.pixel_samples = PIXEL_SAMPLES
+                foil.ray_max_depth = RAY_MAX_DEPTH
                 foil.observe()
                 sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
                 diode_index += 1
