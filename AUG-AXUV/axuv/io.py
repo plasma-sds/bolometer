@@ -13,8 +13,6 @@ DATADIR = str(DATADIR_ENV) + "/"
 CURRENTDIR = DATADIR + "/" + str(os.environ.get("currentdir")) + "/"
 SAVEDIR = CURRENTDIR + "output/"
 
-RAYTRANSFER_PATH = DATADIR + "raytransfer_S05_lowres.h5"
-
 # Loading diode geometry data into a pandas DataFrame for easier filtering
 AXUV_DATAFILE = DATADIR + "AXUV_LOS_geom.txt"
 
