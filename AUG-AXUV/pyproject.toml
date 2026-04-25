@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aug-axuv"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+# Core dependencies for axuv (synthetic forward model)
+dependencies = [
+    "raysect",
+    "cherab",
+    "numpy",
+    "h5py",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+# IPP-only experimental analysis stack
+measurement = [
+    "aug_sfutils",
+]
+
+[tool.setuptools.packages.find]
+# Auto-discovers axuv/ and axuv_measurement/ from repo root
+where = ["."]
+include = ["axuv*"]
