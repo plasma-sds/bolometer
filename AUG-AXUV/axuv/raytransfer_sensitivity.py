@@ -44,7 +44,7 @@ import h5py
 import numpy as np
 import shapely
 from cherab.tools.raytransfer import RayTransferCylinder, RayTransferPipeline0D
-from raysect.core import translate
+from raysect.core import MulticoreEngine, translate
 from scipy.spatial import ConvexHull
 
 from axuv.cameras import SECTOR_CAMERAS, create_observable_world
@@ -62,6 +62,7 @@ SPECTRAL_BINS = 100  # number of spectral bins in each spectrum part
 MIN_WAVELENGTHS = [1, 12.4, 124.0]  # nm  (photon energies: 1240, 100, 10 eV)
 MAX_WAVELENGTHS = [12.4, 124.0, 1240.0]  # nm  (photon energies:  100,  10,  1 eV)
 MAX_BIN_WIDTH = MAX_WAVELENGTHS[-1] / SPECTRAL_BINS
+
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 def _parse_args():
@@ -146,7 +147,7 @@ def _parse_args():
         default=10,
         metavar="proc",
         help="Spawned processes during ray transfer simulation. "
-             "Recommended to set to available CPU threads.",
+        "Recommended to set to available CPU threads.",
     )
     return parser.parse_args()
 
@@ -430,7 +431,8 @@ if __name__ == "__main__":
                 foil.spectral_rays = 1
                 foil.pixel_samples = PIXEL_SAMPLES
                 foil.ray_max_depth = RAY_MAX_DEPTH
-                foil.observe(OBSERVE_PROCESSES)
+                foil.render_engine = MulticoreEngine(processes=OBSERVE_PROCESSES)
+                foil.observe()
                 sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
                 diode_index += 1
                 # This will be overrwritten, but is needed so that Raysect doesn't fail for the next diode with
