@@ -347,19 +347,25 @@ if __name__ == "__main__":
 
     if type(SI_time) is float:
         SI_time = np.round(SI_time, 6)
-    elif type(SI_time) is str:
-        pass
+    elif type(SI_time) is list:
+        SI_time = SI_time[0]
 
     SI_time = str(SI_time)
 
-    if not mask_negative and "highres" not in RAYTRANSFER_PATH:
-        savename: str = SAVEDIR + "emissions_lowres_" + SI_time + ".h5"
-    elif mask_negative and "highres" not in RAYTRANSFER_PATH:
-        savename: str = SAVEDIR + "emissions_lowres_masked_" + SI_time + ".h5"
-    elif not mask_negative and "highres" in RAYTRANSFER_PATH:
+    # If SI_time has "[" and "]", strip these
+    if "[" in SI_time:
+        SI_time = SI_time.strip("[]")
+
+    print("SI_time:", SI_time)
+
+    if not mask_negative and "highres" in RAYTRANSFER_PATH.name:
         savename: str = SAVEDIR + "emissions_highres_" + SI_time + ".h5"
-    elif mask_negative and "highres" in RAYTRANSFER_PATH:
+    elif mask_negative and "highres" in RAYTRANSFER_PATH.name:
         savename: str = SAVEDIR + "emissions_highres_masked_" + SI_time + ".h5"
+    elif not mask_negative and "highres" not in RAYTRANSFER_PATH.name:
+        savename: str = SAVEDIR + "emissions_lowres_" + SI_time + ".h5"
+    elif mask_negative and "highres" not in RAYTRANSFER_PATH.name:
+        savename: str = SAVEDIR + "emissions_lowres_masked_" + SI_time + ".h5"
 
     print(savename)
     with h5py.File(savename, "w") as file:
@@ -368,4 +374,4 @@ if __name__ == "__main__":
         file.create_dataset("energies", data=energies_eV)
         file.create_dataset("diode_measurements", data=measured_spectra)
 
-    print("\nSaved emission data.")
+    print("Saved emission data.\n")

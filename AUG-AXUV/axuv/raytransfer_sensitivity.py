@@ -417,7 +417,9 @@ if __name__ == "__main__":
     if (
         not USE_CAD_MESH
     ):  # No reflections, calculate sensitivity matrix for all bins at once
-        print("\nNo reflections: calculating sensitivity matrix for all wavelength bins at once...")
+        print(
+            "\nNo reflections: calculating sensitivity matrix for all wavelength bins at once..."
+        )
         diode_index = 0
         for camera in cameras:
             for foil in camera.foil_detectors:
