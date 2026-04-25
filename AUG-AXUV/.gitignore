@@ -1,23 +1,31 @@
+# Excluded directories
 axuv/data/*/
-*.obj
+aug/
+output/
+plots/
+
+# Data files
 axuv/data/AXUV_LOS_geom.txt
-Archive/
+*.obj
+*.pickle
+*.h5
+
+# Environment related
 *__pycache__/
 *.ipynb_checkpoints/
 *.vscode*
-*.pickle
-aug/
+.zed
 .venv
-.vscode*
-*.h5
-*.png
-*.gif
-output/
-plots/
-create.py
-*.xlsx
-*.out
-slurm*
 pyrightconfig.json
 *.egg-info
-.zed
+
+# Image files
+*.png
+*.gif
+
+# Other files
+*.xlsx
+*.out
+
+# testing files
+testing.py
