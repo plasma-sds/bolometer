@@ -332,7 +332,7 @@ if __name__ == "__main__":
     # ── Build world with cameras ─────────────────────────────────────────────
     world, cameras = create_observable_world(
         sectors=SECTORS,
-        axuv_df=AXUV_DF,
+        axuv_df=axuv_df,
         cad_mesh=USE_CAD_MESH,
         show_plots=False,
     )
