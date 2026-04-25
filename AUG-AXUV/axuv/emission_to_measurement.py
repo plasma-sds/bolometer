@@ -17,18 +17,27 @@ All data-loading helpers live in axuv.io.
 """
 
 import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 from axuv.io import SAVEDIR, load_raytransfer_data, open_emission_data
 from axuv.responsivity import get_weighted_power
 
-plt.rcParams.update({"font.size": 16, "figure.dpi": 150,
-                     "figure.constrained_layout.use": True})
+plt.rcParams.update(
+    {"font.size": 16, "figure.dpi": 150, "figure.constrained_layout.use": True}
+)
 
 
-def time_evolution(diode_first, diode_last, times, measured_times,
-                   emissions_dir=None, noise=False, degraded=False):
+def time_evolution(
+    diode_first,
+    diode_last,
+    times,
+    measured_times,
+    emissions_dir=None,
+    noise=False,
+    degraded=False,
+):
     """
     Computes and plots the time evolution of integrated diode signals across
     multiple JOREK timesteps.
@@ -58,19 +67,21 @@ def time_evolution(diode_first, diode_last, times, measured_times,
     if emissions_dir is None:
         emissions_dir = SAVEDIR
 
-    numofdiodes          = diode_last - diode_first
+    numofdiodes = diode_last - diode_first
     diode_data_evolution = np.zeros([numofdiodes, len(measured_times)])
 
-    noise_array = np.random.normal(1.0, 0.1, numofdiodes) if noise else np.ones(numofdiodes)
+    noise_array = (
+        np.random.normal(1.0, 0.1, numofdiodes) if noise else np.ones(numofdiodes)
+    )
 
     for i, timestep in enumerate(measured_times):
         fpath = os.path.join(
             emissions_dir, f"raytransfer_emissions_lowres_1eV_{timestep}.h5"
         )
-        data               = open_emission_data(fpath)
-        energies           = data["energies"]
+        data = open_emission_data(fpath)
+        energies = data["energies"]
         diode_measurements = data["diode_measurements"]
-        diode_data         = diode_measurements[diode_first:diode_last]
+        diode_data = diode_measurements[diode_first:diode_last]
 
         diode_data_evolution[:, i] = get_weighted_power(
             diode_data, energies, degraded=degraded
@@ -79,8 +90,12 @@ def time_evolution(diode_first, diode_last, times, measured_times,
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
     pcm = ax.pcolormesh(
-        times, range(numofdiodes), diode_data_evolution,
-        norm="log", vmin=1e-5, cmap="inferno",
+        times,
+        range(numofdiodes),
+        diode_data_evolution,
+        norm="log",
+        vmin=1e-5,
+        cmap="inferno",
     )
     ax.set_xlabel("Time [ms]")
     ax.set_ylabel("Diode index")
@@ -105,24 +120,26 @@ if __name__ == "__main__":
         help="Path to the emissions HDF5 file (from calculate_emissions_for_raytransfer.py)",
     )
     parser.add_argument(
-        "--degraded", action="store_true", default=False,
+        "--degraded",
+        action="store_true",
+        default=False,
         help="Use the degraded-diode responsivity curve.",
     )
     args = parser.parse_args()
 
     # ── Load geometry matrix ─────────────────────────────────────────────────
-    rt_data            = load_raytransfer_data(args.sensitivity_file)
+    rt_data = load_raytransfer_data(args.sensitivity_file)
     sensitivity_matrix = rt_data["sensitivity_matrix"]
-    grid_centres       = rt_data["grid_centres"]
-    inverse_voxel_map  = rt_data["inverse_voxel_map"]
-    diode_names        = rt_data["diode_names"]
-    wavelength_edges   = rt_data["wavelength_bin_edges"]
-    energy_edges       = rt_data["energy_bin_edges_eV"]
+    grid_centres = rt_data["grid_centres"]
+    inverse_voxel_map = rt_data["inverse_voxel_map"]
+    diode_names = rt_data["diode_names"]
+    wavelength_edges = rt_data["wavelength_bin_edges"]
+    energy_edges = rt_data["energy_bin_edges_eV"]
 
     # ── Load emissions ────────────────────────────────────────────────────────
-    em_data            = open_emission_data(args.emissions_file)
-    emissions          = em_data["emissions"]
-    energies           = em_data["energies"]
+    em_data = open_emission_data(args.emissions_file)
+    emissions = em_data["emissions"]
+    energies = em_data["energies"]
     diode_measurements = em_data["diode_measurements"]
 
     print(f"Sensitivity matrix : {sensitivity_matrix.shape}")

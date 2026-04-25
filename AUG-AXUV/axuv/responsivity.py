@@ -17,8 +17,9 @@ CSV format: two columns — photon_energy_eV, responsivity_A_per_W
 
 from __future__ import annotations
 
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 # Responsivity data lives alongside the package source in axuv/data/
 _DATA_DIR = Path(__file__).parent / "data"
@@ -38,8 +39,8 @@ def _load_responsivity() -> None:
     global _sensitivity, _degraded_sensitivity
     if _sensitivity is not None:
         return
-    _sensitivity          = np.genfromtxt(_DATA_DIR / "axuv_sensitivity.csv",  delimiter=",")
-    _degraded_sensitivity = np.genfromtxt(_DATA_DIR / "degraded_avg.csv",       delimiter=",")
+    _sensitivity = np.genfromtxt(_DATA_DIR / "axuv_sensitivity.csv", delimiter=",")
+    _degraded_sensitivity = np.genfromtxt(_DATA_DIR / "degraded_avg.csv", delimiter=",")
 
 
 def sensitivity_function(where: np.ndarray | float) -> np.ndarray | float:
@@ -59,12 +60,12 @@ def degraded_sensitivity_function(where: np.ndarray | float) -> np.ndarray | flo
     degraded curve is applied.  Accepts scalars, lists, or NumPy arrays.
     """
     _load_responsivity()
-    arr    = np.atleast_1d(np.asarray(where, dtype=float))
+    arr = np.atleast_1d(np.asarray(where, dtype=float))
     scalar = np.ndim(where) == 0
 
     result = np.where(
         arr < DEGRADED_THRESHOLD_EV,
-        np.interp(arr, _sensitivity[:, 0],          _sensitivity[:, 1]),
+        np.interp(arr, _sensitivity[:, 0], _sensitivity[:, 1]),
         np.interp(arr, _degraded_sensitivity[:, 0], _degraded_sensitivity[:, 1]),
     )
     return float(result[0]) if scalar else result
@@ -98,12 +99,20 @@ def get_weighted_power(
 
     for i, energy in enumerate(spectrum_energies):
         # Half-widths to adjacent bin centres; mirror boundary conditions
-        dE_1 = abs(energy - spectrum_energies[i - 1]) / 2 if i > 0     else abs(energy - spectrum_energies[i + 1]) / 2
-        dE_2 = abs(energy - spectrum_energies[i + 1]) / 2 if i < n - 1 else abs(energy - spectrum_energies[i - 1]) / 2
+        dE_1 = (
+            abs(energy - spectrum_energies[i - 1]) / 2
+            if i > 0
+            else abs(energy - spectrum_energies[i + 1]) / 2
+        )
+        dE_2 = (
+            abs(energy - spectrum_energies[i + 1]) / 2
+            if i < n - 1
+            else abs(energy - spectrum_energies[i - 1]) / 2
+        )
 
         # spectrum_energies is in decreasing order, so range is [energy+dE_1, energy−dE_2]
         averaging_range = np.linspace(energy + dE_1, energy - dE_2, 100)
-        average_weight  = float(np.average(responsivity(averaging_range)))
+        average_weight = float(np.average(responsivity(averaging_range)))
         weighted_power += diode_data[:, i] * average_weight
 
     return weighted_power

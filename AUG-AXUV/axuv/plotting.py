@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
+
 from axuv.geometry import point3d_to_rz
 
-# plot_interpolated, get_value_at,
-# show_camera_lines_of_sight, show_camera_lines_of_sight_3D
-# — move all four functions here unchanged —
 
 def plot_interpolated(interpolated, title="", cbarlabel="", gc_d_lines=None, show=True):
     """
@@ -18,10 +16,10 @@ def plot_interpolated(interpolated, title="", cbarlabel="", gc_d_lines=None, sho
     ax1.set_xlabel("R [m]")
     ax1.set_ylabel("z [m]")
     ax1.set_title(title)
-    
+
     if gc_d_lines is not None:
         for line in gc_d_lines:
-            ax1.plot(line[0], line[1], lw=.5, c="white")
+            ax1.plot(line[0], line[1], lw=0.5, c="white")
     cbar = plt.colorbar(ims)
     cbar.set_label(cbarlabel)
     if show:
@@ -29,12 +27,13 @@ def plot_interpolated(interpolated, title="", cbarlabel="", gc_d_lines=None, sho
     else:
         return ax1, ims
 
+
 def get_value_at(im, x, y):
     """Function to get the data value at a given axis (x, y) coordinate from an imshow() plot"""
     extent = im.get_extent()
     x_min, x_max, y_min, y_max = extent
     data = im.get_array()
-    
+
     rows, cols = data.shape
 
     # Convert axis coordinates (x, y) to array indices
@@ -47,66 +46,75 @@ def get_value_at(im, x, y):
     else:
         return None  # Out of bounds
 
+
 def show_camera_lines_of_sight(cameralist, gc_d_lines=None):
     """
-    Plots diode lines of sight with plasma facing components. 
+    Plots diode lines of sight with plasma facing components.
     Takes a list of BolometerCamera objects.
     Also shows slit center locations.
     """
-    _, ax = plt.subplots(figsize=[4,5])
+    _, ax = plt.subplots(figsize=[4, 5])
     for camera in cameralist:
         for foil in camera.foil_detectors:
             # print(foil.slit.centre_point)
             slit_centre = foil.slit.centre_point
             slit_centre_rz = point3d_to_rz(slit_centre)
-            ax.plot(slit_centre_rz[0], slit_centre_rz[1], 'ko')
+            ax.plot(slit_centre_rz[0], slit_centre_rz[1], "ko")
             origin, hit, _ = foil.trace_sightline()
             centre_rz = point3d_to_rz(foil.centre_point)
-            ax.plot(centre_rz[0], centre_rz[1], 'kx')
+            ax.plot(centre_rz[0], centre_rz[1], "kx")
             origin_rz = point3d_to_rz(origin)
             hit_rz = point3d_to_rz(hit)
-            ax.plot([origin_rz[0], hit_rz[0]], [origin_rz[1], hit_rz[1]], 'r', lw=.5)
+            ax.plot([origin_rz[0], hit_rz[0]], [origin_rz[1], hit_rz[1]], "r", lw=0.5)
 
     if gc_d_lines is not None:
         for line in gc_d_lines:
-            ax.plot(line[0], line[1], lw=.5, c="k")
+            ax.plot(line[0], line[1], lw=0.5, c="k")
     ax.set_xlabel("R")
     ax.set_ylabel("z")
     ax.set_title("Diode lines of sight")
-    ax.axis('equal')
+    ax.axis("equal")
 
     ax.set_xlim(0.95, 2.4)
     ax.set_ylim(-1.2, 1.2)
     plt.show()
-    
+
+
 def show_camera_lines_of_sight_3D(cameralist):
     """
-    Plots diode lines of sight with plasma facing components. 
+    Plots diode lines of sight with plasma facing components.
     Takes a list of BolometerCamera objects.
     Also shows slit center locations.
     """
 
     fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
+    ax = fig.add_subplot(projection="3d")
     for camera in cameralist:
         for foil in camera.foil_detectors:
             origin, hit, _ = foil.trace_sightline()
             # LOS
-            ax.plot([origin.x, hit.x], [origin.y, hit.y], [origin.z, hit.z], 'r', lw=.5)
-            ax.plot(foil.slit.centre_point.x, foil.slit.centre_point.y, foil.slit.centre_point.z, 'ko')
-            ax.plot(foil.centre_point.x, foil.centre_point.y, foil.centre_point.z, 'kx')
+            ax.plot(
+                [origin.x, hit.x], [origin.y, hit.y], [origin.z, hit.z], "r", lw=0.5
+            )
+            ax.plot(
+                foil.slit.centre_point.x,
+                foil.slit.centre_point.y,
+                foil.slit.centre_point.z,
+                "ko",
+            )
+            ax.plot(foil.centre_point.x, foil.centre_point.y, foil.centre_point.z, "kx")
 
-    ax.axis('equal')
+    ax.axis("equal")
     ax.view_init(elev=30, azim=120)
     plt.show()
 
 
 # ── Voxel-grid visualisation ──────────────────────────────────────────────────
 
-import numpy as np
 import matplotlib.animation as animation
-from matplotlib.patches import Polygon as MplPolygon
+import numpy as np
 from matplotlib.collections import PatchCollection
+from matplotlib.patches import Polygon as MplPolygon
 
 
 def has_colorbar(fig) -> bool:
@@ -114,8 +122,9 @@ def has_colorbar(fig) -> bool:
     return any(ax.get_label() == "<colorbar>" for ax in fig.axes)
 
 
-def plot_voxel_data(ax, voxels, voxel_values, cmap="inferno",
-                    vmin=None, vmax=None, title=None):
+def plot_voxel_data(
+    ax, voxels, voxel_values, cmap="inferno", vmin=None, vmax=None, title=None
+):
     """
     Renders a ToroidalVoxelGrid as a PatchCollection.
 
@@ -154,14 +163,21 @@ def plot_init():
     small bottom panel for the spectral responsivity curve.
     """
     fig = plt.figure(figsize=(4, 8))
-    gs  = fig.add_gridspec(3, 1, height_ratios=[3.9, 0.1, 1])
+    gs = fig.add_gridspec(3, 1, height_ratios=[3.9, 0.1, 1])
     ax1 = fig.add_subplot(gs[0])
     ax2 = fig.add_subplot(gs[2])
     return fig, [ax1, ax2]
 
 
-def plot_voxel_radiation(index, axlist, emission_data, voxel_grid, energies,
-                          gc_d_lines=None, bins_per_frame=10):
+def plot_voxel_radiation(
+    index,
+    axlist,
+    emission_data,
+    voxel_grid,
+    energies,
+    gc_d_lines=None,
+    bins_per_frame=10,
+):
     """
     FuncAnimation callback: sums emission over `bins_per_frame` spectral bins
     and marks the corresponding energy range on the responsivity curve.
@@ -203,8 +219,14 @@ def plot_voxel_radiation(index, axlist, emission_data, voxel_grid, energies,
     return [ax1, ax2]
 
 
-def animate_voxel_emissions(emission_data, voxel_grid, energies,
-                             gc_d_lines=None, bins_per_frame=10, interval=500):
+def animate_voxel_emissions(
+    emission_data,
+    voxel_grid,
+    energies,
+    gc_d_lines=None,
+    bins_per_frame=10,
+    interval=500,
+):
     """
     Creates an animation of voxel emission stepping through spectral bin groups.
 
@@ -217,7 +239,7 @@ def animate_voxel_emissions(emission_data, voxel_grid, energies,
     :param interval:      frame delay in milliseconds.
     :returns:             HTML5 video string for display in Jupyter notebooks.
     """
-    n_frames  = emission_data.shape[0] // bins_per_frame
+    n_frames = emission_data.shape[0] // bins_per_frame
     fig, axlist = plot_init()
 
     ani = animation.FuncAnimation(

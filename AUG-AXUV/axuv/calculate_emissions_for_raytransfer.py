@@ -2,57 +2,72 @@
 
 import argparse
 import csv
+from pathlib import Path
+
+import cherab.core.atomic.elements as elements
 import h5py
 import numpy as np
-import cherab.core.atomic.elements as elements
-
-from pathlib import Path
-from scipy.spatial import ConvexHull
-from scipy.constants import electron_mass, atomic_mass
-
+from cherab.core import Line, Maxwellian, Plasma, Species
+from cherab.core.math import AxisymmetricMapper
+from cherab.core.model import (
+    Bremsstrahlung,
+    ExcitationLine,
+    GaussianLine,
+    RecombinationLine,
+)
+from cherab.openadas import OpenADAS
+from cherab.tools.primitives import axisymmetric_mesh_from_polygon
 from raysect.core import Vector3D
 from raysect.core.math.function.float import Interpolator2DArray
-from cherab.openadas import OpenADAS
-from cherab.core import Species, Maxwellian, Plasma, Line
-from cherab.core.math import AxisymmetricMapper
-from cherab.core.model import ExcitationLine, GaussianLine, RecombinationLine, Bremsstrahlung
-from cherab.tools.primitives import axisymmetric_mesh_from_polygon
+from scipy.constants import atomic_mass, electron_mass
+from scipy.spatial import ConvexHull
 
-from axuv.io import DATADIR, SAVEDIR, RAYTRANSFER_PATH, AXUV_DF
-from axuv.cameras import create_observable_world, SECTOR_CAMERAS
-from axuv.interpolation import interpolate_parameters, POLOIDAL_RMIN, POLOIDAL_RMAX, POLOIDAL_ZMIN, POLOIDAL_ZMAX
-from axuv.plasma import get_spectrum_part, emission_function_3d
+from axuv.cameras import SECTOR_CAMERAS, create_observable_world
+from axuv.interpolation import (
+    POLOIDAL_RMAX,
+    POLOIDAL_RMIN,
+    POLOIDAL_ZMAX,
+    POLOIDAL_ZMIN,
+    interpolate_parameters,
+)
+from axuv.io import DATADIR, RAYTRANSFER_PATH, SAVEDIR, load_axuv_df
+from axuv.plasma import emission_function_3d, get_spectrum_part
 
 
 def _parse_args():
     parser = argparse.ArgumentParser(
         description="Calculate AXUV emissions from a JOREK HDF5 file."
     )
-    parser.add_argument("input_file",
-                        help="Path to the JOREK output HDF5 file")
-    parser.add_argument("--sectors", "-s", nargs="+", default=["S16"],
-                        choices=list(SECTOR_CAMERAS), metavar="SECTOR",
-                        help=f"Sectors to simulate. Choices: {list(SECTOR_CAMERAS)}. Default: S16.")
+    parser.add_argument("input_file", help="Path to the JOREK output HDF5 file")
+    parser.add_argument(
+        "--sectors",
+        "-s",
+        nargs="+",
+        default=["S16"],
+        choices=list(SECTOR_CAMERAS),
+        metavar="SECTOR",
+        help=f"Sectors to simulate. Choices: {list(SECTOR_CAMERAS)}. Default: S16.",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse_args()
     INPUT_FILENAME = args.input_file
-    SECTORS        = args.sectors   # e.g. ["S5", "S16"]
+    SECTORS = args.sectors  # e.g. ["S5", "S16"]
 
     # ... load data ...
-    
+
     mask_negative = True
     test_uniform = False
     print(INPUT_FILENAME)
     with h5py.File(INPUT_FILENAME, "r") as f:
         majorR = np.asarray(f["R"])[:, np.newaxis]
-        zaxis  = np.asarray(f["Z"])[:, np.newaxis]
-    
+        zaxis = np.asarray(f["Z"])[:, np.newaxis]
+
         # np.column_stack handles the newaxis automatically for 1D datasets
         neon = np.column_stack([np.asarray(f[f"Ne{i}"]) for i in range(11)])
-    
+
         eTemp = np.asarray(f["Te"])[:, np.newaxis]
         eDens = np.asarray(f["ne"])[:, np.newaxis]
         if "time" in f:
@@ -63,21 +78,34 @@ if __name__ == "__main__":
             # Assumes filename like: .../input/output_step<value>_out.h5
             SI_time = (
                 Path(INPUT_FILENAME)
-                .stem                          # "output_step<value>_out"
-                .removeprefix("output_step")   # "<value>_out"
-                .removesuffix("_out")          # "<value>"
+                .stem.removeprefix(  # "output_step<value>_out"
+                    "output_step"
+                )  # "<value>_out"
+                .removesuffix("_out")  # "<value>"
             )
 
     if mask_negative:
-        eTemp = np.maximum(eTemp, 1.)
+        eTemp = np.maximum(eTemp, 1.0)
         eDens = np.maximum(eDens, 0)
         neon = np.maximum(neon, 0)
 
-     # Uniform test values per charge state (Ne0..Ne10)
-    UNIFORM_NEON_VALUES = [7e9, 1e15, 1e18, 3e18, 2e18, 1e18, 6e17, 5e17, 2e17, 5e14, 1e12]
+    # Uniform test values per charge state (Ne0..Ne10)
+    UNIFORM_NEON_VALUES = [
+        7e9,
+        1e15,
+        1e18,
+        3e18,
+        2e18,
+        1e18,
+        6e17,
+        5e17,
+        2e17,
+        5e14,
+        1e12,
+    ]
 
     if test_uniform:
-        eTemp.fill(10.)
+        eTemp.fill(10.0)
         eDens.fill(1e20)
         for i, val in enumerate(UNIFORM_NEON_VALUES):
             neon[:, i] = val
@@ -87,7 +115,7 @@ if __name__ == "__main__":
     # Setting up interpolation of JOREK data
     # In this case the vertical and horizontal distances between the gridpoints will be the same
     # Later the voxel grid will have the same dimensions, but will be masked where there is no plasma
-    # this results in ~4 GB memory allocation for the creation of the ~4000 element voxel grid 
+    # this results in ~4 GB memory allocation for the creation of the ~4000 element voxel grid
     # NOTE Doubling the total number of grid points results in a 2^2=4 times increase in the memory needed!
     # NOTE Doubling the resolution in both directions results in a (2*2)^2=16 times increase!
     resolution_R = 60
@@ -100,9 +128,8 @@ if __name__ == "__main__":
         points, resolution_R, resolution_z, neonlist, eTemp, eDens, method="linear"
     )
 
-
     try:
-        with h5py.File(RAYTRANSFER_PATH, 'r') as h5f:
+        with h5py.File(RAYTRANSFER_PATH, "r") as h5f:
             sensitivity_matrix = h5f["sensitivity_matrix"][()]
             grid_centres = h5f["grid_centres"][()]
             voxel_map = h5f["voxel_map"][()]
@@ -118,9 +145,12 @@ if __name__ == "__main__":
     hull = ConvexHull(points)
     convex_hull = points[hull.vertices]
 
+    # Load the AXUV diode geometry data
+    axuv_df = load_axuv_df()
+
     world, cameras = create_observable_world(
         sectors=SECTORS,
-        axuv_df=AXUV_DF,
+        axuv_df=axuv_df,
         cad_mesh=False,
         show_plots=False,
     )
@@ -152,23 +182,41 @@ if __name__ == "__main__":
     calculated_d1 = interpolated_eDens - neon_electron_contributions
 
     # create 2D interpolators for the densities and temperature
-    e_density_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_eDens, 
-                                            interpolation_type="linear", extrapolation_type="nearest", 
-                                            extrapolation_range_x=extrap_x, extrapolation_range_y=extrap_y)
-    e_temperature_interp = Interpolator2DArray(linspace_R, linspace_z, interpolated_eTemp, "linear", "nearest", extrap_x, extrap_y)
+    e_density_interp = Interpolator2DArray(
+        linspace_R,
+        linspace_z,
+        interpolated_eDens,
+        interpolation_type="linear",
+        extrapolation_type="nearest",
+        extrapolation_range_x=extrap_x,
+        extrapolation_range_y=extrap_y,
+    )
+    e_temperature_interp = Interpolator2DArray(
+        linspace_R,
+        linspace_z,
+        interpolated_eTemp,
+        "linear",
+        "nearest",
+        extrap_x,
+        extrap_y,
+    )
 
     # map the 2D interpolators into 3D functions using the axisymmetry operator
     e_density = AxisymmetricMapper(e_density_interp)
     e_temperature = AxisymmetricMapper(e_temperature_interp)
 
-    de1_density_interp = Interpolator2DArray(linspace_R, linspace_z, calculated_d1, "linear", "nearest", extrap_x, extrap_y)
+    de1_density_interp = Interpolator2DArray(
+        linspace_R, linspace_z, calculated_d1, "linear", "nearest", extrap_x, extrap_y
+    )
 
     de1_density = AxisymmetricMapper(de1_density_interp)
 
     # Set up the distributions to be Maxwellians
     e_distribution = Maxwellian(e_density, e_temperature, zero_velocity, electron_mass)
 
-    de1_distribution = Maxwellian(de1_density, e_temperature, zero_velocity, deuterium_mass)
+    de1_distribution = Maxwellian(
+        de1_density, e_temperature, zero_velocity, deuterium_mass
+    )
 
     # Define the different plasma species
     de1_species = Species(elements.deuterium, 1, de1_distribution)
@@ -177,13 +225,18 @@ if __name__ == "__main__":
     neon_species = []
     for i in range(11):
         interp = Interpolator2DArray(
-            linspace_R, linspace_z, interpolated_neon[i, :, :],
-            "linear", "nearest", extrap_x, extrap_y,
+            linspace_R,
+            linspace_z,
+            interpolated_neon[i, :, :],
+            "linear",
+            "nearest",
+            extrap_x,
+            extrap_y,
         )
-        density    = AxisymmetricMapper(interp)
-        dist       = Maxwellian(density, e_temperature, zero_velocity, neon_mass)
+        density = AxisymmetricMapper(interp)
+        dist = Maxwellian(density, e_temperature, zero_velocity, neon_mass)
         neon_species.append(Species(elements.neon, i, dist))
-        
+
     ##############################################################
     # Get Neon lines from Photon Emissivity Coefficients datafiles
     ##############################################################
@@ -193,14 +246,19 @@ if __name__ == "__main__":
         for row in reader:
             i, part1, part2 = row
 
-            neon_lines.append(ExcitationLine(Line(elements.neon, int(i), (part1, part2)), lineshape=GaussianLine))
-            neon_lines.append(RecombinationLine(Line(elements.neon, int(i), (part1, part2)), lineshape=GaussianLine))
+            neon_lines.append(
+                ExcitationLine(
+                    Line(elements.neon, int(i), (part1, part2)), lineshape=GaussianLine
+                )
+            )
+            neon_lines.append(
+                RecombinationLine(
+                    Line(elements.neon, int(i), (part1, part2)), lineshape=GaussianLine
+                )
+            )
 
     # add all neon lines to the plasma + Bremsstrahlung
-    plasma.models = [
-        *neon_lines,
-        Bremsstrahlung()
-    ]
+    plasma.models = [*neon_lines, Bremsstrahlung()]
 
     # define species, field and composition
     plasma.b_field = Vector3D(0, 0, 0)
@@ -210,18 +268,22 @@ if __name__ == "__main__":
     # Define spectral measurements array - has to be size: num of diodes by spectral bins
     NUM_OF_DIODES = sensitivity_matrix.shape[0]
     SPECTRAL_BINS = 100
-                                          # Approx photon energies in eV
-    MIN_WAVELENGTHS = [0.25, 12.4, 124]   # 5000, 100, 10
-    MAX_WAVELENGTHS = [12.4, 124, 1240]   # 100, 10, 1
+    # Approx photon energies in eV
+    MIN_WAVELENGTHS = [0.25, 12.4, 124]  # 5000, 100, 10
+    MAX_WAVELENGTHS = [12.4, 124, 1240]  # 100, 10, 1
 
-
-    wavelengths = np.unique(np.array([*get_spectrum_part(0, MIN_WAVELENGTHS,   MAX_WAVELENGTHS, SPECTRAL_BINS),
-                                      *get_spectrum_part(1, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS),
-                                      *get_spectrum_part(2, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS)]))
+    wavelengths = np.unique(
+        np.array(
+            [
+                *get_spectrum_part(0, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS),
+                *get_spectrum_part(1, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS),
+                *get_spectrum_part(2, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS),
+            ]
+        )
+    )
     energies_eV = 1239.8 / wavelengths
     total_wavelength_bins = len(wavelengths) - 1
 
-        
     emissions = np.zeros([inverse_voxel_map.shape[0], total_wavelength_bins])
 
     for i in range(inverse_voxel_map.shape[0]):
@@ -236,19 +298,30 @@ if __name__ == "__main__":
 
         emission_in_point = np.zeros(total_wavelength_bins)
         for part in range(3):
-            emission_in_point[part*99:(part+1)*99] = emission_function_3d(xi, yi, zi, part, plasma, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS)
+            emission_in_point[part * 99 : (part + 1) * 99] = emission_function_3d(
+                xi,
+                yi,
+                zi,
+                part,
+                plasma,
+                MIN_WAVELENGTHS,
+                MAX_WAVELENGTHS,
+                SPECTRAL_BINS,
+            )
 
         emissions[i, :] = emission_in_point
-        print(str(i)+"/"+str(inverse_voxel_map.shape[0]), end="\r")
+        print(str(i) + "/" + str(inverse_voxel_map.shape[0]), end="\r")
 
     measured_spectra = np.zeros([NUM_OF_DIODES, total_wavelength_bins])
     for i in range(NUM_OF_DIODES):
         for j in range(total_wavelength_bins):
-            measured_spectra[i, j] = np.sum(sensitivity_matrix[i, :, j] * emissions[:, j])
+            measured_spectra[i, j] = np.sum(
+                sensitivity_matrix[i, :, j] * emissions[:, j]
+            )
 
     # Saving the emission data as HDF5
     if type(SI_time) is float:
-        SI_time= np.round(SI_time, 6)
+        SI_time = np.round(SI_time, 6)
     savename: str = SAVEDIR + "raytransfer_emissions_lowres_1eV_" + str(SI_time) + ".h5"
     print(savename)
     with h5py.File(savename, "w") as file:
@@ -258,4 +331,3 @@ if __name__ == "__main__":
         file.create_dataset("diode_measurements", data=measured_spectra)
 
     print("\nSaved emission data.")
-    
