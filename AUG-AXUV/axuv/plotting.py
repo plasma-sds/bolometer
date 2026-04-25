@@ -1,4 +1,8 @@
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Polygon as MplPolygon
 
 from axuv.geometry import point3d_to_rz
 
@@ -110,13 +114,6 @@ def show_camera_lines_of_sight_3D(cameralist):
 
 
 # ── Voxel-grid visualisation ──────────────────────────────────────────────────
-
-import matplotlib.animation as animation
-import numpy as np
-from matplotlib.collections import PatchCollection
-from matplotlib.patches import Polygon as MplPolygon
-
-
 def has_colorbar(fig) -> bool:
     """Returns True if the figure already contains a colorbar axes."""
     return any(ax.get_label() == "<colorbar>" for ax in fig.axes)
