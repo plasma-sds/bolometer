@@ -104,6 +104,11 @@ import sys
 sys.path.insert(0, "/path/to/AUG-AXUV")
 ```
 
+Or alternatively install with pip in editable mode from the main project directory:
+```bash
+pip install -e .
+```
+
 ---
 
 ## `axuv` — synthetic diagnostics
