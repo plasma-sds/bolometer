@@ -30,7 +30,7 @@ from axuv.interpolation import (
     POLOIDAL_ZMIN,
     interpolate_parameters,
 )
-from axuv.io import DATADIR, RAYTRANSFER_PATH, SAVEDIR, load_axuv_df
+from axuv.io import DATADIR, SAVEDIR, load_axuv_df
 from axuv.plasma import emission_function_3d, get_spectrum_part
 
 
@@ -48,6 +48,12 @@ def _parse_args():
         metavar="SECTOR",
         help=f"Sectors to simulate. Choices: {list(SECTOR_CAMERAS)}. Default: S16.",
     )
+    parser.add_argument(
+        "--raytransfer-file",
+        "-r",
+        help="Path to the raytransfer HDF5 file",
+        default=Path(__file__).parent / "raytransfer_S16_norefl.h5",
+    )
     return parser.parse_args()
 
 
@@ -55,6 +61,7 @@ if __name__ == "__main__":
     args = _parse_args()
     INPUT_FILENAME = args.input_file
     SECTORS = args.sectors  # e.g. ["S5", "S16"]
+    RAYTRANSFER_PATH = args.raytransfer_file
 
     # ... load data ...
 
@@ -267,7 +274,7 @@ if __name__ == "__main__":
 
     # Define spectral measurements array - has to be size: num of diodes by spectral bins
     NUM_OF_DIODES = sensitivity_matrix.shape[0]
-    
+
     # ── Spectral configuration ───────────────────────────────────────────────────
     SPECTRAL_BINS = 100  # number of spectral bins in each spectrum part
     MIN_WAVELENGTHS = [1, 12.4, 124.0]  # nm  (photon energies: 1240, 100, 10 eV)
