@@ -31,6 +31,7 @@ with open(_GC_LINES_PATH, "rb") as fp:
 
 # ── HDF5 data-loading helpers ─────────────────────────────────────────────────
 
+
 def load_raytransfer_data(hdf5_path: str) -> dict:
     """
     Loads the sensitivity matrix and grid metadata from the HDF5 file
@@ -48,24 +49,25 @@ def load_raytransfer_data(hdf5_path: str) -> dict:
     """
     with h5py.File(hdf5_path, "r") as h5f:
         data = {
-            "sensitivity_matrix":   h5f["sensitivity_matrix"][()],
-            "grid_centres":         h5f["grid_centres"][()],
-            "laplacian":            h5f["laplacian"][()],
-            "voxel_map":            h5f["voxel_map"][()],
-            "inverse_voxel_map":    h5f["inverse_voxel_map"][()],
+            "sensitivity_matrix": h5f["sensitivity_matrix"][()],
+            "grid_centres": h5f["grid_centres"][()],
+            "laplacian": h5f["laplacian"][()],
+            "voxel_map": h5f["voxel_map"][()],
+            "inverse_voxel_map": h5f["inverse_voxel_map"][()],
             "wavelength_bin_edges": h5f["wavelength_bin_edges"][()],
-            "energy_bin_edges_eV":  h5f["energy_bin_edges_eV"][()],
+            "energy_bin_edges_eV": h5f["energy_bin_edges_eV"][()],
         }
         if "diode_names" in h5f:
             raw = h5f["diode_names"][()]
             data["diode_names"] = [
-                n.decode("utf-8") if isinstance(n, bytes) else str(n)
-                for n in raw
+                n.decode("utf-8") if isinstance(n, bytes) else str(n) for n in raw
             ]
         else:
             data["diode_names"] = []
 
-    print(f"Loaded sensitivity matrix {data['sensitivity_matrix'].shape} from {hdf5_path}")
+    print(
+        f"Loaded sensitivity matrix {data['sensitivity_matrix'].shape} from {hdf5_path}"
+    )
     return data
 
 
@@ -82,9 +84,9 @@ def open_emission_data(filepath: str) -> dict:
     """
     with h5py.File(filepath, "r") as f:
         data = {
-            "emissions":          f["emissions"][()],
-            "wavelengths":        f["wavelengths"][()],
-            "energies":           f["energies"][()],
+            "emissions": f["emissions"][()],
+            "wavelengths": f["wavelengths"][()],
+            "energies": f["energies"][()],
             "diode_measurements": f["diode_measurements"][()],
         }
     return data
