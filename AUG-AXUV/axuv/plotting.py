@@ -1,3 +1,6 @@
+import os
+import re
+
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
@@ -5,6 +8,14 @@ from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon as MplPolygon
 
 from axuv.geometry import point3d_to_rz
+from axuv.io import open_emission_data
+from axuv.responsivity import get_weighted_power
+
+# Matches any of the four emission filename prefixes defined in
+# calculate_emissions_for_raytransfer.py:
+#   emissions_lowres_<time>.h5          emissions_lowres_masked_<time>.h5
+#   emissions_highres_<time>.h5         emissions_highres_masked_<time>.h5
+_EMISSION_PREFIX_RE = re.compile(r"^emissions_(?:low|high)res(?:_masked)?_")
 
 
 def plot_interpolated(interpolated, title="", cbarlabel="", gc_d_lines=None, show=True):
@@ -154,6 +165,7 @@ def plot_voxel_data(
     return ax
 
 
+# --- Animation
 def plot_init():
     """
     Creates a two-panel figure: large top panel for voxel emission,
@@ -248,3 +260,93 @@ def animate_voxel_emissions(
         fargs=(axlist, emission_data, voxel_grid, energies, gc_d_lines, bins_per_frame),
     )
     return ani.to_html5_video()
+
+
+def plot_time_evolution(
+    diode_first,
+    diode_last,
+    filenames,
+    noise=False,
+    degraded=False,
+    plot=True,
+    vmin=1e-5,
+):
+    """
+    Plots the time evolution of the synthetic measurement AXUV diode signals
+    with log normalisation.  Returns the figure, axis, pcolormesh object, and
+    the data as a 2-D array (diodes × time).
+
+    The user may add Gaussian noise with sigma=10% to simulate measurement
+    uncertainty.  Either the manufacturer-specified or the degraded spectral
+    response function can be applied.
+
+    Parameters
+    ----------
+    diode_first : int
+        Index of the first diode to include (0-based, inclusive).
+    diode_last : int
+        Index of the last diode to include (0-based, exclusive).
+    filenames : list of str
+        Full paths to the emission HDF5 files produced by
+        calculate_emissions_for_raytransfer.py.  The physical time [s] is
+        parsed from each basename after stripping the known prefix
+        (emissions_lowres_, emissions_lowres_masked_,
+         emissions_highres_, emissions_highres_masked_) and the .h5 suffix.
+    noise : bool
+        If True, multiply each diode's signal by a fixed per-diode Gaussian
+        factor (mean=1, sigma=0.1) to simulate calibration uncertainty.
+    degraded : bool
+        If True, apply the degraded-diode responsivity curve.
+    plot : bool
+        If True (default) create and return the figure; otherwise return only
+        the data array.
+    vmin : float
+        Lower colour-scale limit for the log-normalised pcolormesh.
+
+    Returns
+    -------
+    When plot=True  : fig, ax, pcm, diode_data_evolution
+    When plot=False : diode_data_evolution
+
+    NOTE: diode_first / diode_last follow the ordering in which cameras and
+    their foil_detectors were appended when building the emission file.  Use
+    HDFView or h5py to inspect an unfamiliar file.
+    """
+    times = np.array(
+        [
+            float(_EMISSION_PREFIX_RE.sub("", os.path.basename(s)).removesuffix(".h5"))
+            for s in filenames
+        ]
+    )
+    numofdiodes = diode_last - diode_first
+    diode_data_evolution = np.zeros([numofdiodes, len(filenames)])
+    noise_array = (
+        np.random.normal(1.0, 0.1, numofdiodes) if noise else np.ones(numofdiodes)
+    )
+    for i, fname in enumerate(filenames):
+        emission_dict = open_emission_data(fname)
+        energies = emission_dict["energies"]
+        diode_measurements = emission_dict["diode_measurements"]
+        diode_data = diode_measurements[diode_first:diode_last]
+        diode_data_evolution[:, i] = (
+            get_weighted_power(diode_data, energies, degraded=degraded) * noise_array
+        )
+
+    if plot:
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+        pcm = ax.pcolormesh(
+            times * 1e3,
+            range(numofdiodes),
+            diode_data_evolution,
+            norm="log",
+            vmin=vmin,
+            cmap="inferno",
+            shading="nearest",
+        )
+        ax.set_xlabel("Time [ms]")
+        ax.set_ylabel("Diode index")
+        ax.set_title("Diode signal time evolution")
+        plt.colorbar(pcm, ax=ax, label="Weighted power [W]")
+        return fig, ax, pcm, diode_data_evolution
+    else:
+        return diode_data_evolution
