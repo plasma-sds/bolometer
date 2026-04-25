@@ -1,7 +1,8 @@
-# This script is used for calculating emissions for sector 16 of AUG
+# This script is used for calculating emissions for the cross-section of AUG
 
 import argparse
 import csv
+import warnings
 from pathlib import Path
 
 import cherab.core.atomic.elements as elements
@@ -19,10 +20,10 @@ from cherab.openadas import OpenADAS
 from cherab.tools.primitives import axisymmetric_mesh_from_polygon
 from raysect.core import Vector3D
 from raysect.core.math.function.float import Interpolator2DArray
+from raysect.optical import World
 from scipy.constants import atomic_mass, electron_mass
 from scipy.spatial import ConvexHull
 
-from axuv.cameras import SECTOR_CAMERAS, create_observable_world
 from axuv.interpolation import (
     POLOIDAL_RMAX,
     POLOIDAL_RMIN,
@@ -40,13 +41,18 @@ def _parse_args():
     )
     parser.add_argument("input_file", help="Path to the JOREK output HDF5 file")
     parser.add_argument(
-        "--sectors",
-        "-s",
-        nargs="+",
-        default=["S16"],
-        choices=list(SECTOR_CAMERAS),
-        metavar="SECTOR",
-        help=f"Sectors to simulate. Choices: {list(SECTOR_CAMERAS)}. Default: S16.",
+        "--resolution-r",
+        type=int,
+        default=60,
+        metavar="N",
+        help="Number of voxel columns in the radial direction.",
+    )
+    parser.add_argument(
+        "--resolution-z",
+        type=int,
+        default=110,
+        metavar="N",
+        help="Number of voxel rows in the vertical direction.",
     )
     parser.add_argument(
         "--raytransfer-file",
@@ -62,6 +68,8 @@ if __name__ == "__main__":
     INPUT_FILENAME = args.input_file
     SECTORS = args.sectors  # e.g. ["S5", "S16"]
     RAYTRANSFER_PATH = args.raytransfer_file
+    RESOLUTION_R = args.resolution_r
+    RESOLUTION_Z = args.resolution_z
 
     # ... load data ...
 
@@ -125,8 +133,8 @@ if __name__ == "__main__":
     # this results in ~4 GB memory allocation for the creation of the ~4000 element voxel grid
     # NOTE Doubling the total number of grid points results in a 2^2=4 times increase in the memory needed!
     # NOTE Doubling the resolution in both directions results in a (2*2)^2=16 times increase!
-    resolution_R = 60
-    resolution_z = 110
+    resolution_R = RESOLUTION_R
+    resolution_z = RESOLUTION_Z
 
     # The points at which the JOREK data is defined
     points = np.hstack([majorR, zaxis])
@@ -148,6 +156,16 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Could not load sensitivity matrix from {RAYTRANSFER_PATH}: {e}")
 
+    # Test if the loaded voxel grid has the same resolution as what is supplied for the interpolation by the user
+    if grid_centres.shape[0] != resolution_R or grid_centres.shape[1] != resolution_z:
+        warnings.warn(f"Warning: voxel grid resolution ({grid_centres.shape[0]}x{grid_centres.shape[1]}) does not match interpolation resolution ({resolution_R}x{resolution_z})", UserWarning, stacklevel=2)
+
+        # Only continue if the user explicitly wants to proceed
+        response = input("Do you want to proceed? (y/N): ").strip().lower()
+        if response != "y":
+            print("Aborted.")
+            raise InterruptedError("User aborted the operation.")
+
     # A convex hull is created around the JOREK datapoints to be used as boundary for the voxel grid later
     hull = ConvexHull(points)
     convex_hull = points[hull.vertices]
@@ -155,12 +173,7 @@ if __name__ == "__main__":
     # Load the AXUV diode geometry data
     axuv_df = load_axuv_df()
 
-    world, cameras = create_observable_world(
-        sectors=SECTORS,
-        axuv_df=axuv_df,
-        cad_mesh=False,
-        show_plots=False,
-    )
+    world = World()
 
     print("Creating plasma...")
     plasma = Plasma(parent=world)
@@ -330,7 +343,20 @@ if __name__ == "__main__":
     # Saving the emission data as HDF5
     if type(SI_time) is float:
         SI_time = np.round(SI_time, 6)
-    savename: str = SAVEDIR + "raytransfer_emissions_lowres_1eV_" + str(SI_time) + ".h5"
+    elif type(SI_time) is str:
+        pass
+
+    SI_time = str(SI_time)
+
+    if not mask_negative and "highres" not in RAYTRANSFER_PATH:
+        savename: str = SAVEDIR + "emissions_lowres_" + SI_time + ".h5"
+    elif mask_negative and "highres" not in RAYTRANSFER_PATH:
+        savename: str = SAVEDIR + "emissions_lowres_masked_" + SI_time + ".h5"
+    elif not mask_negative and "highres" in RAYTRANSFER_PATH:
+        savename: str = SAVEDIR + "emissions_highres_" + SI_time + ".h5"
+    elif mask_negative and "highres" in RAYTRANSFER_PATH:
+        savename: str = SAVEDIR + "emissions_highres_masked_" + SI_time + ".h5"
+
     print(savename)
     with h5py.File(savename, "w") as file:
         file.create_dataset("emissions", data=emissions)
