@@ -58,10 +58,10 @@ from axuv.io import load_axuv_df
 from axuv.plasma import get_spectrum_part
 
 # ── Spectral configuration ───────────────────────────────────────────────────
-SPECTRAL_BINS   = 100
-MIN_WAVELENGTHS = [0.25, 12.4,  124.0]   # nm  (photon energies: 5000, 100, 10 eV)
+SPECTRAL_BINS = 100  # number of spectral bins in each spectrum part
+MIN_WAVELENGTHS = [1, 12.4, 124.0]  # nm  (photon energies: 1240, 100, 10 eV)
 MAX_WAVELENGTHS = [12.4, 124.0, 1240.0]  # nm  (photon energies:  100,  10,  1 eV)
-
+MAX_BIN_WIDTH = MAX_WAVELENGTHS[-1] / SPECTRAL_BINS
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 def _parse_args():
@@ -424,6 +424,9 @@ if __name__ == "__main__":
                 foil.observe()
                 sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
                 diode_index += 1
+                # This will be overrwritten, but is needed so that Raysect doesn't fail for the next diode with
+                # "ValueError: The minimum wavelength must be less than the maximum wavelength."
+                foil.max_wavelength += MAX_BIN_WIDTH * 2
 
         # Flush this bin to disk immediately so a restart can resume from here
         with h5py.File(HDF5_PATH, "r+") as h5f:

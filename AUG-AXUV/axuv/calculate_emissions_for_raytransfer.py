@@ -267,10 +267,11 @@ if __name__ == "__main__":
 
     # Define spectral measurements array - has to be size: num of diodes by spectral bins
     NUM_OF_DIODES = sensitivity_matrix.shape[0]
-    SPECTRAL_BINS = 100
-    # Approx photon energies in eV
-    MIN_WAVELENGTHS = [0.25, 12.4, 124]  # 5000, 100, 10
-    MAX_WAVELENGTHS = [12.4, 124, 1240]  # 100, 10, 1
+    
+    # ── Spectral configuration ───────────────────────────────────────────────────
+    SPECTRAL_BINS = 100  # number of spectral bins in each spectrum part
+    MIN_WAVELENGTHS = [1, 12.4, 124.0]  # nm  (photon energies: 1240, 100, 10 eV)
+    MAX_WAVELENGTHS = [12.4, 124.0, 1240.0]  # nm  (photon energies:  100,  10,  1 eV)
 
     wavelengths = np.unique(
         np.array(
