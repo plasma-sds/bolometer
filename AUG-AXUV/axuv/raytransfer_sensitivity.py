@@ -39,6 +39,7 @@ The file supports resuming: completed wavelength bins are skipped on re-run.
 
 import argparse
 import os
+import time
 
 import h5py
 import numpy as np
@@ -408,15 +409,13 @@ if __name__ == "__main__":
     sensitivity_matrix = np.zeros([NUM_OF_DIODES, num_cells, total_wavelength_bins])
 
     # ── Main computation loop ─────────────────────────────────────────────────
-    for j in range(total_wavelength_bins):
-        with h5py.File(HDF5_PATH, "r") as h5f:
-            if h5f["completed_bins"][j]:
-                print(f"Skipping bin {j + 1}/{total_wavelength_bins} (already done)")
-                continue
+    # If no reflections are calculated, there is no need to calculate the sensitivity matrix
+    # for every wavelength bin independently, since it will be the same for all bins
 
-        wl_lo, wl_hi = wavelengths[j], wavelengths[j + 1]
-        print(f"\nBin {j + 1}/{total_wavelength_bins}: {wl_lo:.4f}–{wl_hi:.4f} nm")
-
+    if (
+        not USE_CAD_MESH
+    ):  # No reflections, calculate sensitivity matrix for all bins at once
+        print("\nNo reflections: calculating sensitivity matrix for all wavelength bins at once...")
         diode_index = 0
         for camera in cameras:
             for foil in camera.foil_detectors:
@@ -425,24 +424,75 @@ if __name__ == "__main__":
                     end="\r",
                 )
                 foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
-                foil.min_wavelength = wl_lo
-                foil.max_wavelength = wl_hi
+                foil.min_wavelength = (
+                    400  # as there are no reflections, we can use the visible range, for example
+                )
+                foil.max_wavelength = 700
                 foil.spectral_bins = ray_transfer_grid.bins
                 foil.spectral_rays = 1
                 foil.pixel_samples = PIXEL_SAMPLES
                 foil.ray_max_depth = RAY_MAX_DEPTH
                 foil.render_engine = MulticoreEngine(processes=OBSERVE_PROCESSES)
                 foil.observe()
-                sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
+                # Instead of indexing into the sensitivity matrix, assign to all wavelength bins at once
+                sensitivity_matrix[diode_index, :, :] = foil.pipelines[0].matrix[:, np.newaxis]
                 diode_index += 1
-                # This will be overrwritten, but is needed so that Raysect doesn't fail for the next diode with
-                # "ValueError: The minimum wavelength must be less than the maximum wavelength."
-                foil.max_wavelength += MAX_BIN_WIDTH * 2
 
-        # Flush this bin to disk immediately so a restart can resume from here
+        # Save the sensitivity matrix for all wavelength bins
         with h5py.File(HDF5_PATH, "r+") as h5f:
-            h5f["sensitivity_matrix"][:, :, j] = sensitivity_matrix[:, :, j]
-            h5f["completed_bins"][j] = 1
+            h5f["sensitivity_matrix"][:, :, :] = sensitivity_matrix
+            h5f["completed_bins"][:] = 1
             h5f.flush()
+
+    elif USE_CAD_MESH:  # Reflections ON, calculate sensitivity matrix for each wavelength bin independently
+        for j in range(total_wavelength_bins):
+            with h5py.File(HDF5_PATH, "r") as h5f:
+                if h5f["completed_bins"][j]:
+                    print(
+                        f"Skipping bin {j + 1}/{total_wavelength_bins} (already done)"
+                    )
+                    continue
+
+            wl_lo, wl_hi = wavelengths[j], wavelengths[j + 1]
+            print(f"\nBin {j + 1}/{total_wavelength_bins}: {wl_lo:.4f}–{wl_hi:.4f} nm")
+
+            # ── Compute sensitivity matrix for this wavelength bin and measure time
+            start_time = time.time()
+
+            diode_index = 0
+            for camera in cameras:
+                for foil in camera.foil_detectors:
+                    print(
+                        f"  [{diode_index + 1}/{NUM_OF_DIODES}] {foil.name}",
+                        end="\r",
+                    )
+                    foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
+                    foil.min_wavelength = wl_lo
+                    foil.max_wavelength = wl_hi
+                    foil.spectral_bins = ray_transfer_grid.bins
+                    foil.spectral_rays = 1
+                    foil.pixel_samples = PIXEL_SAMPLES
+                    foil.ray_max_depth = RAY_MAX_DEPTH
+                    foil.render_engine = MulticoreEngine(processes=OBSERVE_PROCESSES)
+                    foil.observe()
+                    sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
+                    diode_index += 1
+                    # This will be overrwritten, but is needed so that Raysect doesn't fail for the next diode with
+                    # "ValueError: The minimum wavelength must be less than the maximum wavelength."
+                    foil.max_wavelength += MAX_BIN_WIDTH * 2
+
+            # Flush this bin to disk immediately so a restart can resume from here
+            with h5py.File(HDF5_PATH, "r+") as h5f:
+                h5f["sensitivity_matrix"][:, :, j] = sensitivity_matrix[:, :, j]
+                h5f["completed_bins"][j] = 1
+                h5f.flush()
+
+            # ── Compute time taken for this bin and expected time remaining
+            time_taken_one_bin = time.time() - start_time
+            expected_time_remaining = time_taken_one_bin * (
+                total_wavelength_bins - j - 1
+            )
+            print(f"Time taken for one bin: {time_taken_one_bin:.2f} s")
+            print(f"Expected time to complete: {expected_time_remaining / 60:.2f} min")
 
     print(f"\nDone. Results saved to {HDF5_PATH}")
