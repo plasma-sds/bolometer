@@ -322,7 +322,7 @@ if __name__ == "__main__":
 
         emission_in_point = np.zeros(total_wavelength_bins)
         for part in range(3):
-            emission_in_point[part * 99 : (part + 1) * 99] = emission_function_3d(
+            emission_in_point[part * 100 : (part + 1) * 100] = emission_function_3d(
                 xi,
                 yi,
                 zi,

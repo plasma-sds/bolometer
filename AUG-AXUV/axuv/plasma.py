@@ -18,7 +18,7 @@ def emission_function_3d(
     spectrum = Spectrum(min_wavelengths[part], max_wavelengths[part], spectral_bins)
     direction = Vector3D(0, 0, 1)
     point = Point3D(x, y, z)
-    emission = np.zeros(spectral_bins - 1)
+    emission = np.zeros(spectral_bins)
     for model in plasma.models:
         emission += model.emission(point, direction, spectrum.new_spectrum()).samples
     return emission
