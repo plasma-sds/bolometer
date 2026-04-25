@@ -24,6 +24,11 @@ from raysect.optical import World
 from scipy.constants import atomic_mass, electron_mass
 from scipy.spatial import ConvexHull
 
+from axuv.cameras import (
+    MAX_WAVELENGTHS,
+    MIN_WAVELENGTHS,
+    SPECTRAL_BINS,
+)
 from axuv.interpolation import (
     POLOIDAL_RMAX,
     POLOIDAL_RMIN,
@@ -58,7 +63,7 @@ def _parse_args():
         "--raytransfer-file",
         "-r",
         help="Path to the raytransfer HDF5 file",
-        default=Path(__file__).parent / "raytransfer_S16_norefl.h5",
+        default=Path(__file__).parent.parent / "raytransfer_S16_norefl.h5",
     )
     return parser.parse_args()
 
@@ -66,7 +71,6 @@ def _parse_args():
 if __name__ == "__main__":
     args = _parse_args()
     INPUT_FILENAME = args.input_file
-    SECTORS = args.sectors  # e.g. ["S5", "S16"]
     RAYTRANSFER_PATH = args.raytransfer_file
     RESOLUTION_R = args.resolution_r
     RESOLUTION_Z = args.resolution_z
@@ -158,7 +162,11 @@ if __name__ == "__main__":
 
     # Test if the loaded voxel grid has the same resolution as what is supplied for the interpolation by the user
     if grid_centres.shape[0] != resolution_R or grid_centres.shape[1] != resolution_z:
-        warnings.warn(f"Warning: voxel grid resolution ({grid_centres.shape[0]}x{grid_centres.shape[1]}) does not match interpolation resolution ({resolution_R}x{resolution_z})", UserWarning, stacklevel=2)
+        warnings.warn(
+            f"Warning: voxel grid resolution ({grid_centres.shape[0]}x{grid_centres.shape[1]}) does not match interpolation resolution ({resolution_R}x{resolution_z})",
+            UserWarning,
+            stacklevel=2,
+        )
 
         # Only continue if the user explicitly wants to proceed
         response = input("Do you want to proceed? (y/N): ").strip().lower()
@@ -288,11 +296,6 @@ if __name__ == "__main__":
     # Define spectral measurements array - has to be size: num of diodes by spectral bins
     NUM_OF_DIODES = sensitivity_matrix.shape[0]
 
-    # ── Spectral configuration ───────────────────────────────────────────────────
-    SPECTRAL_BINS = 100  # number of spectral bins in each spectrum part
-    MIN_WAVELENGTHS = [1, 12.4, 124.0]  # nm  (photon energies: 1240, 100, 10 eV)
-    MAX_WAVELENGTHS = [12.4, 124.0, 1240.0]  # nm  (photon energies:  100,  10,  1 eV)
-
     wavelengths = np.unique(
         np.array(
             [
@@ -341,6 +344,7 @@ if __name__ == "__main__":
             )
 
     # Saving the emission data as HDF5
+
     if type(SI_time) is float:
         SI_time = np.round(SI_time, 6)
     elif type(SI_time) is str:

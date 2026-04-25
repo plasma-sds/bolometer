@@ -39,6 +39,11 @@ SECTOR_CAMERAS = {
 # Set the pipeline to be used by the diodes
 PIPELINES = [RayTransferPipeline0D()]
 
+# ── Spectral configuration ───────────────────────────────────────────────────
+SPECTRAL_BINS = 100  # number of spectral bins in each spectrum part
+MIN_WAVELENGTHS = [1, 12.4, 124.0]  # nm  (photon energies: 1240, 100, 10 eV)
+MAX_WAVELENGTHS = [12.4, 124.0, 1240.0]  # nm  (photon energies:  100,  10,  1 eV)
+
 
 def get_sensor_data(sensor, axuv_df, channelIDX=None):
     """

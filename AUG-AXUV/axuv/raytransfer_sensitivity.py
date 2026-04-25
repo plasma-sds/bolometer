@@ -48,7 +48,13 @@ from cherab.tools.raytransfer import RayTransferCylinder, RayTransferPipeline0D
 from raysect.core import MulticoreEngine, translate
 from scipy.spatial import ConvexHull
 
-from axuv.cameras import SECTOR_CAMERAS, create_observable_world
+from axuv.cameras import (
+    MAX_WAVELENGTHS,
+    MIN_WAVELENGTHS,
+    SECTOR_CAMERAS,
+    SPECTRAL_BINS,
+    create_observable_world,
+)
 from axuv.interpolation import (
     POLOIDAL_RMAX,
     POLOIDAL_RMIN,
@@ -58,10 +64,6 @@ from axuv.interpolation import (
 from axuv.io import load_axuv_df
 from axuv.plasma import get_spectrum_part
 
-# ── Spectral configuration ───────────────────────────────────────────────────
-SPECTRAL_BINS = 100  # number of spectral bins in each spectrum part
-MIN_WAVELENGTHS = [1, 12.4, 124.0]  # nm  (photon energies: 1240, 100, 10 eV)
-MAX_WAVELENGTHS = [12.4, 124.0, 1240.0]  # nm  (photon energies:  100,  10,  1 eV)
 MAX_BIN_WIDTH = MAX_WAVELENGTHS[-1] / SPECTRAL_BINS
 
 
@@ -424,9 +426,7 @@ if __name__ == "__main__":
                     end="\r",
                 )
                 foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
-                foil.min_wavelength = (
-                    400  # as there are no reflections, we can use the visible range, for example
-                )
+                foil.min_wavelength = 400  # as there are no reflections, we can use the visible range, for example
                 foil.max_wavelength = 700
                 foil.spectral_bins = ray_transfer_grid.bins
                 foil.spectral_rays = 1
@@ -435,7 +435,9 @@ if __name__ == "__main__":
                 foil.render_engine = MulticoreEngine(processes=OBSERVE_PROCESSES)
                 foil.observe()
                 # Instead of indexing into the sensitivity matrix, assign to all wavelength bins at once
-                sensitivity_matrix[diode_index, :, :] = foil.pipelines[0].matrix[:, np.newaxis]
+                sensitivity_matrix[diode_index, :, :] = foil.pipelines[0].matrix[
+                    :, np.newaxis
+                ]
                 diode_index += 1
 
         # Save the sensitivity matrix for all wavelength bins
