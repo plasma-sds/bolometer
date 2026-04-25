@@ -140,6 +140,14 @@ def _parse_args():
             "Defaults to raytransfer_<sectors>_[no]refl.h5 in the current directory."
         ),
     )
+    parser.add_argument(
+        "--observe-processes",
+        type=int,
+        default=10,
+        metavar="proc",
+        help="Spawned processes during ray transfer simulation. "
+             "Recommended to set to available CPU threads.",
+    )
     return parser.parse_args()
 
 
@@ -324,6 +332,7 @@ if __name__ == "__main__":
     RAY_MAX_DEPTH = args.ray_max_depth
     RESOLUTION_R = args.resolution_r
     RESOLUTION_Z = args.resolution_z
+    OBSERVE_PROCESSES = args.observe_processes
     HDF5_PATH = _build_output_path(SECTORS, USE_CAD_MESH, args.output)
 
     # Load the AXUV diode geometry data
@@ -421,7 +430,7 @@ if __name__ == "__main__":
                 foil.spectral_rays = 1
                 foil.pixel_samples = PIXEL_SAMPLES
                 foil.ray_max_depth = RAY_MAX_DEPTH
-                foil.observe()
+                foil.observe(OBSERVE_PROCESSES)
                 sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
                 diode_index += 1
                 # This will be overrwritten, but is needed so that Raysect doesn't fail for the next diode with
