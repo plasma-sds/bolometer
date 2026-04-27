@@ -63,7 +63,14 @@ def _parse_args():
         "--raytransfer-file",
         "-r",
         help="Path to the raytransfer HDF5 file",
-        default=Path(__file__).parent.parent / "raytransfer_S16_norefl.h5",
+        default=str(Path(__file__).parent / "data" / "raytransfer_S16_norefl.h5"),
+    )
+    parser.add_argument(
+        "--mask-negative",
+        "-m",
+        type=bool,
+        default=True,
+        help="Mask negative emission values to 0, except for T_e which is masked to 1 eV.",
     )
     return parser.parse_args()
 
@@ -77,7 +84,7 @@ if __name__ == "__main__":
 
     # ... load data ...
 
-    mask_negative = True
+    mask_negative = args.mask_negative
     test_uniform = False
     print(INPUT_FILENAME)
     with h5py.File(INPUT_FILENAME, "r") as f:
@@ -305,7 +312,8 @@ if __name__ == "__main__":
             ]
         )
     )
-    energies_eV = 1239.8 / wavelengths
+    wavelength_centers = (wavelengths[:-1] + wavelengths[1:]) / 2
+    energies_eV = 1239.8 / wavelength_centers
     total_wavelength_bins = len(wavelengths) - 1
 
     emissions = np.zeros([inverse_voxel_map.shape[0], total_wavelength_bins])
@@ -322,7 +330,7 @@ if __name__ == "__main__":
 
         emission_in_point = np.zeros(total_wavelength_bins)
         for part in range(3):
-            emission_in_point[part * 100 : (part + 1) * 100] = emission_function_3d(
+            emission_in_point[part * SPECTRAL_BINS : (part + 1) * SPECTRAL_BINS] = emission_function_3d(
                 xi,
                 yi,
                 zi,
@@ -358,14 +366,21 @@ if __name__ == "__main__":
 
     print("SI_time:", SI_time)
 
-    if not mask_negative and "highres" in RAYTRANSFER_PATH.name:
-        savename: str = SAVEDIR + "emissions_highres_" + SI_time + ".h5"
-    elif mask_negative and "highres" in RAYTRANSFER_PATH.name:
-        savename: str = SAVEDIR + "emissions_highres_masked_" + SI_time + ".h5"
-    elif not mask_negative and "highres" not in RAYTRANSFER_PATH.name:
-        savename: str = SAVEDIR + "emissions_lowres_" + SI_time + ".h5"
-    elif mask_negative and "highres" not in RAYTRANSFER_PATH.name:
-        savename: str = SAVEDIR + "emissions_lowres_masked_" + SI_time + ".h5"
+
+    if "norefl" not in RAYTRANSFER_PATH:
+        prefix = "emissions_refl_"
+    else:
+        prefix = "emissions_norefl_"
+
+    if not mask_negative and "highres" in RAYTRANSFER_PATH:
+        savename: str = SAVEDIR + prefix + "highres_" + SI_time + ".h5"
+    elif mask_negative and "highres" in RAYTRANSFER_PATH:
+        savename: str = SAVEDIR + prefix + "highres_masked_" + SI_time + ".h5"
+    elif not mask_negative and "highres" not in RAYTRANSFER_PATH:
+        savename: str = SAVEDIR + prefix + "lowres_" + SI_time + ".h5"
+    elif mask_negative and "highres" not in RAYTRANSFER_PATH:
+        savename: str = SAVEDIR + prefix + "lowres_masked_" + SI_time + ".h5"
+
 
     print(savename)
     with h5py.File(savename, "w") as file:

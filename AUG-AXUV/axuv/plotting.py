@@ -15,7 +15,7 @@ from axuv.responsivity import get_weighted_power
 # calculate_emissions_for_raytransfer.py:
 #   emissions_lowres_<time>.h5          emissions_lowres_masked_<time>.h5
 #   emissions_highres_<time>.h5         emissions_highres_masked_<time>.h5
-_EMISSION_PREFIX_RE = re.compile(r"^emissions_(?:low|high)res(?:_masked)?_")
+_EMISSION_PREFIX_RE = re.compile(r"^emissions_(?:refl|norefl)(?:_low|_high)res(?:_masked)?_")
 
 
 def plot_interpolated(interpolated, title="", cbarlabel="", gc_d_lines=None, show=True):
@@ -152,7 +152,7 @@ def plot_voxel_data(
         p.set_array(voxel_values)
         vmax = vmax if vmax is not None else max(voxel_values)
         vmin = vmin if vmin is not None else min(voxel_values)
-        p.set_clim([vmin, vmax])
+        p.set_clim(vmin, vmax)
 
     if ax is None:
         _, ax = plt.subplots()
@@ -309,8 +309,8 @@ def plot_time_evolution(
     When plot=False : diode_data_evolution
 
     NOTE: diode_first / diode_last follow the ordering in which cameras and
-    their foil_detectors were appended when building the emission file.  Use
-    HDFView or h5py to inspect an unfamiliar file.
+    their foil_detectors were appended when building the emission file.
+    Use HDFView or h5py to inspect an unfamiliar file.
     """
     times = np.array(
         [

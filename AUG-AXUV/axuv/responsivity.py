@@ -40,7 +40,7 @@ def _load_responsivity() -> None:
     if _sensitivity is not None:
         return
     _sensitivity = np.genfromtxt(_DATA_DIR / "axuv_sensitivity.csv", delimiter=",")
-    _degraded_sensitivity = np.genfromtxt(_DATA_DIR / "degraded_avg.csv", delimiter=",")
+    _degraded_sensitivity = np.genfromtxt(_DATA_DIR / "degraded_sensitivity.csv", delimiter=",")
 
 
 def sensitivity_function(where: np.ndarray | float) -> np.ndarray | float:

@@ -40,17 +40,16 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from axuv.io import open_emission_data
 from axuv.plotting import plot_time_evolution
 
 # ── Filename pattern helpers ───────────────────────────────────────────────────
 # Mirror the four save-names defined in calculate_emissions_for_raytransfer.py.
 
-# Captures the resolution/masking variant (e.g. "lowres", "highres_masked").
-_VARIANT_RE = re.compile(r"^emissions_((?:low|high)res(?:_masked)?)_")
+# Captures the resolution/masking variant (e.g. "refl" or "norefl", "lowres", "highres_masked").
+_VARIANT_RE = re.compile(r"^emissions_((?:refl|norefl)(?:_low|_high)res(?:_masked)?)_")
 
 # Strips the full prefix to leave only the time value string.
-_TIME_RE = re.compile(r"^emissions_(?:low|high)res(?:_masked)?_")
+_TIME_RE = re.compile(r"^emissions_(?:refl|norefl)(?:_low|_high)res(?:_masked)?_")
 
 # ── Processing constants ───────────────────────────────────────────────────────
 _NOISE_SEED: int = 0
@@ -96,7 +95,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--diode-last",
         type=int,
-        default=None,
+        default=96,
         metavar="N",
         help="Last diode index to include (0-based, exclusive). Defaults to all diodes.",
     )
@@ -128,24 +127,33 @@ if __name__ == "__main__":
     if not groups:
         raise SystemExit(
             "Files found but none matched the expected naming pattern "
-            "(emissions_{lowres|highres}[_masked]_<time>.h5)."
+            "(emissions_{refl|norefl}_{lowres|highres}[_masked]_<time>.h5)."
         )
 
     # Sort each group by ascending physical time
     for files in groups.values():
         files.sort(key=lambda f: float(_TIME_RE.sub("", f.name).removesuffix(".h5")))
 
-    # ── Resolve diode_last (peek at first file when not supplied) ─────────────
+    # ── Resolve diode_first and diode_last ─────────────
+    diode_first: int = args.diode_first
     diode_last: int = args.diode_last
-    if diode_last is None:
-        first_file = next(iter(groups.values()))[0]
-        diode_last = open_emission_data(str(first_file))["diode_measurements"].shape[0]
-        print(f"Detected {diode_last} diodes from '{first_file.name}'.")
+
+    # Create two plots if the diode selection is the default (0-96)
+    if diode_first == 0 and diode_last == 96:
+        two_plots = True
+    else:
+        two_plots = False
+        
 
     # ── Build output root ──────────────────────────────────────────────────────
     # <project_root>/output/<parent_dir_name>/<emissions_dir_name>/
     project_root = Path(__file__).parent.parent
-    out_root = project_root / "output" / emissions_dir.parent.name / emissions_dir.name
+    out_root = (
+        project_root
+        / "output"
+        / emissions_dir.parent.parent.name
+        / emissions_dir.parent.name
+    )
 
     total_files = sum(len(v) for v in groups.values())
     print(
@@ -175,20 +183,63 @@ if __name__ == "__main__":
             if noise:
                 np.random.seed(_NOISE_SEED)
 
-            fig, ax, pcm, data = plot_time_evolution(
-                args.diode_first,
-                diode_last,
-                filenames,
-                noise=noise,
-                degraded=degraded,
-                plot=True,
-                vmin=args.vmin,
-            )
+            if not two_plots:
+                fig, ax, pcm, data = plot_time_evolution(
+                    diode_first,
+                    diode_last,
+                    filenames,
+                    noise=noise,
+                    degraded=degraded,
+                    plot=True,
+                    vmin=args.vmin,
+                )
+            
+                fig.savefig(out_dir / "diode_evolution.png", bbox_inches="tight")
+                plt.close(fig)
+
+            else:
+                
+                fig1, ax1,pcm1, data1 = plot_time_evolution(
+                    0,
+                    48,
+                    filenames,
+                    noise=noise,
+                    degraded=degraded,
+                    plot=True,
+                    vmin=args.vmin,
+                )
+                fig2, ax2,pcm2, data2 = plot_time_evolution(
+                    48,
+                    96,
+                    filenames,
+                    noise=noise,
+                    degraded=degraded,
+                    plot=True,
+                    vmin=args.vmin,
+                )
+                ax1.set_facecolor("k")
+                ax2.set_facecolor("k")
+                ax1.set_title("Horizontal")
+                ax2.set_title("Vertical")
+                
+                fig1.savefig(out_dir / "horizontal.png", bbox_inches="tight")
+                plt.close(fig1)
+                fig2.savefig(out_dir / "vertical.png", bbox_inches="tight")
+                plt.close(fig2)
+
+                _, _, _, data = plot_time_evolution(
+                    0,
+                    96,
+                    filenames,
+                    noise=noise,
+                    degraded=degraded,
+                    plot=True,
+                    vmin=args.vmin,
+                )
 
             np.savetxt(out_dir / "diode_evolution.csv", data, delimiter=",")
             np.savetxt(out_dir / "times_ms.csv", times_ms, delimiter=",")
-            fig.savefig(out_dir / "diode_evolution.png", bbox_inches="tight")
-            plt.close(fig)
+            
 
             print(f"    ✓ {subfolder}")
 
