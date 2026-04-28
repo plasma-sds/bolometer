@@ -261,7 +261,7 @@ def animate_voxel_emissions(
     )
     return ani.to_html5_video()
 
-
+# --- Synthetic measurement data plotting ---
 def plot_time_evolution(
     diode_first,
     diode_last,
@@ -270,6 +270,7 @@ def plot_time_evolution(
     degraded=False,
     plot=True,
     vmin=1e-5,
+    vmax=1e-1,
 ):
     """
     Plots the time evolution of the synthetic measurement AXUV diode signals
@@ -302,6 +303,8 @@ def plot_time_evolution(
         the data array.
     vmin : float
         Lower colour-scale limit for the log-normalised pcolormesh.
+    vmax : float
+        Upper colour-scale limit for the log-normalised pcolormesh.
 
     Returns
     -------
@@ -340,13 +343,13 @@ def plot_time_evolution(
             diode_data_evolution,
             norm="log",
             vmin=vmin,
+            vmax=vmax,
             cmap="inferno",
             shading="nearest",
         )
         ax.set_xlabel("Time [ms]")
         ax.set_ylabel("Diode index")
-        ax.set_title("Diode signal time evolution")
-        plt.colorbar(pcm, ax=ax, label="Weighted power [W]")
+        plt.colorbar(pcm, ax=ax, label="Diode signal [A]")
         return fig, ax, pcm, diode_data_evolution
     else:
         return diode_data_evolution

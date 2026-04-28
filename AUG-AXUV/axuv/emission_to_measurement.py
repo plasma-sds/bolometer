@@ -106,6 +106,13 @@ if __name__ == "__main__":
         metavar="V",
         help="Colour-scale lower limit for the log-normalised pcolormesh.",
     )
+    parser.add_argument(
+        "--vmax",
+        type=float,
+        default=1e-1,
+        metavar="V",
+        help="Colour-scale upper limit for the log-normalised pcolormesh.",
+    )
     args = parser.parse_args()
 
     # ── Validate input directory ───────────────────────────────────────────────
@@ -143,7 +150,7 @@ if __name__ == "__main__":
         two_plots = True
     else:
         two_plots = False
-        
+
 
     # ── Build output root ──────────────────────────────────────────────────────
     # <project_root>/output/<parent_dir_name>/<emissions_dir_name>/
@@ -154,6 +161,10 @@ if __name__ == "__main__":
         / emissions_dir.parent.parent.name
         / emissions_dir.parent.name
     )
+
+    sector = "S5" if emissions_dir.parent.name == "P45" else "S16"
+    title_prefix = emissions_dir.parent.parent.name + " " + sector
+    fname_prefix = emissions_dir.parent.parent.name + "_" + sector + "_"
 
     total_files = sum(len(v) for v in groups.values())
     print(
@@ -192,13 +203,14 @@ if __name__ == "__main__":
                     degraded=degraded,
                     plot=True,
                     vmin=args.vmin,
+                    vmax=args.vmax,
                 )
-            
+
                 fig.savefig(out_dir / "diode_evolution.png", bbox_inches="tight")
                 plt.close(fig)
 
             else:
-                
+
                 fig1, ax1,pcm1, data1 = plot_time_evolution(
                     0,
                     48,
@@ -207,6 +219,7 @@ if __name__ == "__main__":
                     degraded=degraded,
                     plot=True,
                     vmin=args.vmin,
+                    vmax=args.vmax,
                 )
                 fig2, ax2,pcm2, data2 = plot_time_evolution(
                     48,
@@ -216,15 +229,19 @@ if __name__ == "__main__":
                     degraded=degraded,
                     plot=True,
                     vmin=args.vmin,
+                    vmax=args.vmax,
                 )
                 ax1.set_facecolor("k")
                 ax2.set_facecolor("k")
-                ax1.set_title("Horizontal")
-                ax2.set_title("Vertical")
-                
-                fig1.savefig(out_dir / "horizontal.png", bbox_inches="tight")
+
+                fig1.savefig(out_dir / str(fname_prefix + "horiz_notitle.png"), bbox_inches="tight")
+                ax1.set_title(title_prefix + " Horizontal")
+                fig1.savefig(out_dir / str(fname_prefix + "horiz.png"), bbox_inches="tight")
                 plt.close(fig1)
-                fig2.savefig(out_dir / "vertical.png", bbox_inches="tight")
+
+                fig2.savefig(out_dir / str(fname_prefix + "vert_notitle.png"), bbox_inches="tight")
+                ax2.set_title(title_prefix + " Vertical")
+                fig2.savefig(out_dir / str(fname_prefix + "vert.png"), bbox_inches="tight")
                 plt.close(fig2)
 
                 _, _, _, data = plot_time_evolution(
@@ -235,11 +252,12 @@ if __name__ == "__main__":
                     degraded=degraded,
                     plot=True,
                     vmin=args.vmin,
+                    vmax=args.vmax,
                 )
 
             np.savetxt(out_dir / "diode_evolution.csv", data, delimiter=",")
             np.savetxt(out_dir / "times_ms.csv", times_ms, delimiter=",")
-            
+
 
             print(f"    ✓ {subfolder}")
 
