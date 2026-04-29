@@ -353,3 +353,15 @@ def plot_time_evolution(
         return fig, ax, pcm, diode_data_evolution
     else:
         return diode_data_evolution
+
+def plot_etendue(raytraced_etendue, raytraced_error, aug_etendue):
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+
+    ax.plot(raytraced_etendue, label="Raytraced")
+    ax.errorbar(range(len(raytraced_etendue)), raytraced_etendue, yerr=raytraced_error, fmt='none', ecolor='gray', capsize=3)
+    ax.plot(aug_etendue, label="AUG")
+    ax.set_xlabel("Diode index")
+    ax.set_ylabel("Etendue")
+    ax.legend()
+
+    return fig, ax
