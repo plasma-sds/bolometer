@@ -46,6 +46,7 @@ import numpy as np
 import shapely
 from cherab.tools.raytransfer import RayTransferCylinder, RayTransferPipeline0D
 from raysect.core import MulticoreEngine, translate
+from raysect.optical.observer import PowerPipeline0D
 from scipy.spatial import ConvexHull
 
 from axuv.cameras import (
@@ -152,6 +153,11 @@ def _parse_args():
         help="Spawned processes during ray transfer simulation. "
         "Recommended to set to available CPU threads.",
     )
+    parser.add_argument(
+        "--etendue-mode",
+        action="store_true",
+        help="Only calculate the etendue of the diodes and save to a separate file.",
+    )
     return parser.parse_args()
 
 
@@ -163,6 +169,13 @@ def _build_output_path(sectors: list, reflections: bool, output_arg) -> str:
     sector_tag = "_".join(sectors)
     refl_tag = "refl" if reflections else "norefl"
     return f"raytransfer_{sector_tag}_{refl_tag}.h5"
+
+def _build_etendue_output_path(sectors: list, output_arg) -> str:
+    """Returns the output HDF5 path, auto-generating a name if none was given."""
+    if output_arg is not None:
+        return output_arg
+    sector_tag = "_".join(sectors)
+    return f"etendue_{sector_tag}.h5"
 
 
 def _load_jorek_hull(jorek_file: str) -> np.ndarray:
@@ -337,132 +350,94 @@ if __name__ == "__main__":
     RESOLUTION_R = args.resolution_r
     RESOLUTION_Z = args.resolution_z
     OBSERVE_PROCESSES = args.observe_processes
-    HDF5_PATH = _build_output_path(SECTORS, USE_CAD_MESH, args.output)
+    ETENDUE_MODE = args.etendue_mode
+    if not ETENDUE_MODE:
+        HDF5_PATH = _build_output_path(SECTORS, USE_CAD_MESH, args.output)
+    else:
+        HDF5_PATH = _build_etendue_output_path(SECTORS, args.output)
 
     # Load the AXUV diode geometry data
     axuv_df = load_axuv_df()
 
-    # ── Build world with cameras ─────────────────────────────────────────────
-    world, cameras = create_observable_world(
-        sectors=SECTORS,
-        axuv_df=axuv_df,
-        cad_mesh=USE_CAD_MESH,
-        show_plots=False,
-    )
-
-    # Count diodes dynamically so the matrix size is always correct
-    NUM_OF_DIODES = sum(len(cam.foil_detectors) for cam in cameras)
-    print(
-        f"Sectors: {SECTORS}  |  Total diodes: {NUM_OF_DIODES}  |  "
-        f"Reflections: {USE_CAD_MESH}"
-    )
-    for camera in cameras:
-        print(f"  {camera.name}: {len(camera.foil_detectors)} diodes")
-
-    diode_names = [foil.name for camera in cameras for foil in camera.foil_detectors]
-
-    # ── Build voxel grid ─────────────────────────────────────────────────────
-    print("Producing the voxel grid...")
-    if args.jorek_file is not None:
-        print(f"  Masking grid to JOREK plasma hull from: {args.jorek_file}")
-        hull_points = _load_jorek_hull(args.jorek_file)
-    else:
-        print("  No JOREK file supplied — using full rectangular grid.")
-        hull_points = _full_rectangular_hull()
-
-    ray_transfer_grid, cell_centres, grid_laplacian, num_cells = _build_voxel_grid(
-        RESOLUTION_R, RESOLUTION_Z, hull_points
-    )
-    print(f"  Active voxels: {num_cells} / {RESOLUTION_R * RESOLUTION_Z}")
-
-    # ── Wavelength grid ──────────────────────────────────────────────────────
-    wavelengths = np.unique(
-        np.concatenate(
-            [
-                get_spectrum_part(i, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS)
-                for i in range(3)
-            ]
+    if not ETENDUE_MODE:
+        # ── Build world with cameras ─────────────────────────────────────────────
+        world, cameras = create_observable_world(
+            sectors=SECTORS,
+            axuv_df=axuv_df,
+            cad_mesh=USE_CAD_MESH,
+            show_plots=False,
         )
-    )
-    energies_eV = 1239.8 / wavelengths
-    total_wavelength_bins = len(wavelengths) - 1
-    print(
-        f"  Wavelength bins: {total_wavelength_bins}  "
-        f"({wavelengths[0]:.3f}–{wavelengths[-1]:.3f} nm)"
-    )
 
-    # ── Initialise output file (no-op if it already exists) ──────────────────
-    _init_output_file(
-        HDF5_PATH,
-        NUM_OF_DIODES,
-        num_cells,
-        total_wavelength_bins,
-        cell_centres,
-        ray_transfer_grid,
-        grid_laplacian,
-        wavelengths,
-        energies_eV,
-        diode_names,
-    )
-
-    # ── Attach voxel grid to the scene ───────────────────────────────────────
-    ray_transfer_grid.parent = world
-
-    sensitivity_matrix = np.zeros([NUM_OF_DIODES, num_cells, total_wavelength_bins])
-
-    # ── Main computation loop ─────────────────────────────────────────────────
-    # If no reflections are calculated, there is no need to calculate the sensitivity matrix
-    # for every wavelength bin independently, since it will be the same for all bins
-
-    if (
-        not USE_CAD_MESH
-    ):  # No reflections, calculate sensitivity matrix for all bins at once
+        # Count diodes dynamically so the matrix size is always correct
+        NUM_OF_DIODES = sum(len(cam.foil_detectors) for cam in cameras)
         print(
-            "\nNo reflections: calculating sensitivity matrix for all wavelength bins at once..."
+            f"Sectors: {SECTORS}  |  Total diodes: {NUM_OF_DIODES}  |  "
+            f"Reflections: {USE_CAD_MESH}"
         )
-        diode_index = 0
         for camera in cameras:
-            for foil in camera.foil_detectors:
-                print(
-                    f"  [{diode_index + 1}/{NUM_OF_DIODES}] {foil.name}",
-                    end="\r",
-                )
-                foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
-                foil.min_wavelength = 400  # as there are no reflections, we can use the visible range, for example
-                foil.max_wavelength = 700
-                foil.spectral_bins = ray_transfer_grid.bins
-                foil.spectral_rays = 1
-                foil.pixel_samples = PIXEL_SAMPLES
-                foil.ray_max_depth = RAY_MAX_DEPTH
-                foil.render_engine = MulticoreEngine(processes=OBSERVE_PROCESSES)
-                foil.observe()
-                # Instead of indexing into the sensitivity matrix, assign to all wavelength bins at once
-                sensitivity_matrix[diode_index, :, :] = foil.pipelines[0].matrix[
-                    :, np.newaxis
+            print(f"  {camera.name}: {len(camera.foil_detectors)} diodes")
+
+        diode_names = [foil.name for camera in cameras for foil in camera.foil_detectors]
+
+        # ── Build voxel grid ─────────────────────────────────────────────────────
+        print("Producing the voxel grid...")
+        if args.jorek_file is not None:
+            print(f"  Masking grid to JOREK plasma hull from: {args.jorek_file}")
+            hull_points = _load_jorek_hull(args.jorek_file)
+        else:
+            print("  No JOREK file supplied — using full rectangular grid.")
+            hull_points = _full_rectangular_hull()
+
+        ray_transfer_grid, cell_centres, grid_laplacian, num_cells = _build_voxel_grid(
+            RESOLUTION_R, RESOLUTION_Z, hull_points
+        )
+        print(f"  Active voxels: {num_cells} / {RESOLUTION_R * RESOLUTION_Z}")
+
+        # ── Wavelength grid ──────────────────────────────────────────────────────
+        wavelengths = np.unique(
+            np.concatenate(
+                [
+                    get_spectrum_part(i, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS)
+                    for i in range(3)
                 ]
-                diode_index += 1
+            )
+        )
+        energies_eV = 1239.8 / wavelengths
+        total_wavelength_bins = len(wavelengths) - 1
+        print(
+            f"  Wavelength bins: {total_wavelength_bins}  "
+            f"({wavelengths[0]:.3f}–{wavelengths[-1]:.3f} nm)"
+        )
 
-        # Save the sensitivity matrix for all wavelength bins
-        with h5py.File(HDF5_PATH, "r+") as h5f:
-            h5f["sensitivity_matrix"][:, :, :] = sensitivity_matrix
-            h5f["completed_bins"][:] = 1
-            h5f.flush()
+        # ── Initialise output file (no-op if it already exists) ──────────────────
+        _init_output_file(
+            HDF5_PATH,
+            NUM_OF_DIODES,
+            num_cells,
+            total_wavelength_bins,
+            cell_centres,
+            ray_transfer_grid,
+            grid_laplacian,
+            wavelengths,
+            energies_eV,
+            diode_names,
+        )
 
-    elif USE_CAD_MESH:  # Reflections ON, calculate sensitivity matrix for each wavelength bin independently
-        for j in range(total_wavelength_bins):
-            with h5py.File(HDF5_PATH, "r") as h5f:
-                if h5f["completed_bins"][j]:
-                    print(
-                        f"Skipping bin {j + 1}/{total_wavelength_bins} (already done)"
-                    )
-                    continue
+        # ── Attach voxel grid to the scene ───────────────────────────────────────
+        ray_transfer_grid.parent = world
 
-            wl_lo, wl_hi = wavelengths[j], wavelengths[j + 1]
-            print(f"\nBin {j + 1}/{total_wavelength_bins}: {wl_lo:.4f}–{wl_hi:.4f} nm")
+        sensitivity_matrix = np.zeros([NUM_OF_DIODES, num_cells, total_wavelength_bins])
 
-            # ── Compute sensitivity matrix for this wavelength bin and measure time
-            start_time = time.time()
+        # ── Main computation loop ─────────────────────────────────────────────────
+        # If no reflections are calculated, there is no need to calculate the sensitivity matrix
+        # for every wavelength bin independently, since it will be the same for all bins
 
+        if (
+            not USE_CAD_MESH
+        ):  # No reflections, calculate sensitivity matrix for all bins at once
+            print(
+                "\nNo reflections: calculating sensitivity matrix for all wavelength bins at once..."
+            )
             diode_index = 0
             for camera in cameras:
                 for foil in camera.foil_detectors:
@@ -471,32 +446,124 @@ if __name__ == "__main__":
                         end="\r",
                     )
                     foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
-                    foil.min_wavelength = wl_lo
-                    foil.max_wavelength = wl_hi
+                    foil.min_wavelength = 400  # as there are no reflections, we can use the visible range, for example
+                    foil.max_wavelength = 700
                     foil.spectral_bins = ray_transfer_grid.bins
                     foil.spectral_rays = 1
                     foil.pixel_samples = PIXEL_SAMPLES
                     foil.ray_max_depth = RAY_MAX_DEPTH
                     foil.render_engine = MulticoreEngine(processes=OBSERVE_PROCESSES)
                     foil.observe()
-                    sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
+                    # Instead of indexing into the sensitivity matrix, assign to all wavelength bins at once
+                    sensitivity_matrix[diode_index, :, :] = foil.pipelines[0].matrix[
+                        :, np.newaxis
+                    ]
                     diode_index += 1
-                    # This will be overrwritten, but is needed so that Raysect doesn't fail for the next diode with
-                    # "ValueError: The minimum wavelength must be less than the maximum wavelength."
-                    foil.max_wavelength += MAX_BIN_WIDTH * 2
 
-            # Flush this bin to disk immediately so a restart can resume from here
+            # Save the sensitivity matrix for all wavelength bins
             with h5py.File(HDF5_PATH, "r+") as h5f:
-                h5f["sensitivity_matrix"][:, :, j] = sensitivity_matrix[:, :, j]
-                h5f["completed_bins"][j] = 1
+                h5f["sensitivity_matrix"][:, :, :] = sensitivity_matrix
+                h5f["completed_bins"][:] = 1
                 h5f.flush()
 
-            # ── Compute time taken for this bin and expected time remaining
-            time_taken_one_bin = time.time() - start_time
-            expected_time_remaining = time_taken_one_bin * (
-                total_wavelength_bins - j - 1
-            )
-            print(f"Time taken for one bin: {time_taken_one_bin:.2f} s")
-            print(f"Expected time to complete: {expected_time_remaining / 60:.2f} min")
+        elif USE_CAD_MESH:  # Reflections ON, calculate sensitivity matrix for each wavelength bin independently
+            for j in range(total_wavelength_bins):
+                with h5py.File(HDF5_PATH, "r") as h5f:
+                    if h5f["completed_bins"][j]:
+                        print(
+                            f"Skipping bin {j + 1}/{total_wavelength_bins} (already done)"
+                        )
+                        continue
 
-    print(f"\nDone. Results saved to {HDF5_PATH}")
+                wl_lo, wl_hi = wavelengths[j], wavelengths[j + 1]
+                print(f"\nBin {j + 1}/{total_wavelength_bins}: {wl_lo:.4f}–{wl_hi:.4f} nm")
+
+                # ── Compute sensitivity matrix for this wavelength bin and measure time
+                start_time = time.time()
+
+                diode_index = 0
+                for camera in cameras:
+                    for foil in camera.foil_detectors:
+                        print(
+                            f"  [{diode_index + 1}/{NUM_OF_DIODES}] {foil.name}",
+                            end="\r",
+                        )
+                        foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
+                        foil.min_wavelength = wl_lo
+                        foil.max_wavelength = wl_hi
+                        foil.spectral_bins = ray_transfer_grid.bins
+                        foil.spectral_rays = 1
+                        foil.pixel_samples = PIXEL_SAMPLES
+                        foil.ray_max_depth = RAY_MAX_DEPTH
+                        foil.render_engine = MulticoreEngine(processes=OBSERVE_PROCESSES)
+                        foil.observe()
+                        sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
+                        diode_index += 1
+                        # This will be overrwritten, but is needed so that Raysect doesn't fail for the next diode with
+                        # "ValueError: The minimum wavelength must be less than the maximum wavelength."
+                        foil.max_wavelength += MAX_BIN_WIDTH * 2
+
+                # Flush this bin to disk immediately so a restart can resume from here
+                with h5py.File(HDF5_PATH, "r+") as h5f:
+                    h5f["sensitivity_matrix"][:, :, j] = sensitivity_matrix[:, :, j]
+                    h5f["completed_bins"][j] = 1
+                    h5f.flush()
+
+                # ── Compute time taken for this bin and expected time remaining
+                time_taken_one_bin = time.time() - start_time
+                expected_time_remaining = time_taken_one_bin * (
+                    total_wavelength_bins - j - 1
+                )
+                print(f"Time taken for one bin: {time_taken_one_bin:.2f} s")
+                print(f"Expected time to complete: {expected_time_remaining / 60:.2f} min")
+
+        print(f"\nDone. Results saved to {HDF5_PATH}")
+
+    elif ETENDUE_MODE:
+        print("NOTE: There is no reason to use CAD mesh reflections in ETENDUE mode.") if USE_CAD_MESH else None
+        # ── Build world with cameras ─────────────────────────────────────────────
+        world, cameras = create_observable_world(
+            sectors=SECTORS,
+            axuv_df=axuv_df,
+            cad_mesh=False,
+            show_plots=False,
+            etendue_mode=True,
+        )
+
+        # Count diodes dynamically so the matrix size is always correct
+        NUM_OF_DIODES = sum(len(cam.foil_detectors) for cam in cameras)
+        print(
+            f"Sectors: {SECTORS}  |  Total diodes: {NUM_OF_DIODES}  |  "
+        )
+        for camera in cameras:
+            print(f"  {camera.name}: {len(camera.foil_detectors)} diodes")
+
+        diode_names = [foil.name for camera in cameras for foil in camera.foil_detectors]
+
+        raytraced_etendue = np.zeros(NUM_OF_DIODES)
+        raytraced_error = np.zeros(NUM_OF_DIODES)
+        raytracing_solid_angle = np.zeros(NUM_OF_DIODES)
+
+        i = 0
+        for camera in cameras:
+            for foil in camera.foil_detectors:
+                foil.render_engine = MulticoreEngine(processes=OBSERVE_PROCESSES)
+                foil.pipelines = [PowerPipeline0D(accumulate=False)]
+                etendue, error = foil.calculate_etendue(ray_count=100000)
+                print(
+                    f"  [{i + 1}/{NUM_OF_DIODES}] {foil.name} (etendue={etendue:.2e}, error={error:.2e})",
+                    end="\r",
+                )
+                raytracing_solid_angle[i] = foil.solid_angle
+                raytraced_etendue[i] = etendue
+                raytraced_error[i] = error
+                i += 1
+
+        # Save the etendue and error data with the diode names
+        with h5py.File(HDF5_PATH, "w") as h5f:
+            h5f["raytraced_etendue"] = raytraced_etendue
+            h5f["raytraced_error"] = raytraced_error
+            h5f["diode_names"] = diode_names
+            h5f["raytracing_solid_angle"] = raytracing_solid_angle
+
+        print(f"\nEtendue results saved to {HDF5_PATH}")

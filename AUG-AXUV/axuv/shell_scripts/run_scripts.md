@@ -6,20 +6,30 @@
 
 ### S5 reflections
 ```bash
-nice -n 5 taskset -c 0-9 python axuv/raytransfer_sensitivity.py --sectors S5 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5
+nice -n 5 taskset -c 0-9 python axuv/raytransfer_sensitivity.py --sectors S5 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
 ```
 
 ### S16 reflections
 ```bash
-nice -n 5 taskset -c 10-19 python axuv/raytransfer_sensitivity.py --sectors S16 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5
+nice -n 5 taskset -c 10-19 python axuv/raytransfer_sensitivity.py --sectors S16 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
 ```
 
 ### S5 no reflections
 ```bash
-nice -n 5 taskset -c 20-29 python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file axuv/data/step02410_out.h5
+nice -n 5 taskset -c 20-29 python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
 ```
 
 ### S16 no reflections
 ```bash
-nice -n 5 taskset -c 30-39 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5
+nice -n 5 taskset -c 30-39 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
+```
+
+### S5 etendue
+```bash
+nice -n 5 taskset -c 0-9 python axuv/raytransfer_sensitivity.py --sectors S5 --observe-processes 10 --etendue-mode
+```
+
+### S16 etendue
+```bash
+nice -n 5 taskset -c 10-19 python axuv/raytransfer_sensitivity.py --sectors S16 --observe-processes 10 --etendue-mode
 ```

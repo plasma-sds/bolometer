@@ -251,7 +251,7 @@ def make_axuv_camera(
         dy=slit_y,
         parent=diode_camera,
     )
-    
+
     print(
         f"  slit created for {diode_camera.name}: {slit_id}, centre_point: {ORIGIN}, basis_x: {XAXIS}, dx: {SLIT_WIDTH_X}, basis_y: {YAXIS}, dy: {slit_y}"
     )
@@ -271,11 +271,11 @@ def make_axuv_camera(
         diode_transform = translate(diode_x, 0, diode_z) * rotate_basis(
             forward=Vector3D(-diode_x, 0, -diode_z), up=YAXIS
         )
-        
+
         diode_id = "{} #{} {}".format(
             slit_id, detector_id_start + j + 1, signalnames[j]
         )
-        
+
         print(f"{j + 1}/{len(sensor_angles)}    diode: {diode_id}")
         diode = BolometerFoil(
             detector_id=diode_id,
@@ -424,7 +424,7 @@ def make_axuv_camera_box(
     return diode_camera
 
 
-def create_observable_world(sectors, axuv_df, cad_mesh=False, show_plots=False):
+def create_observable_world(sectors, axuv_df, cad_mesh=False, show_plots=False, etendue_mode=False):
     """
     Build a Raysect world containing AXUV cameras for the requested sectors.
 
@@ -473,11 +473,13 @@ def create_observable_world(sectors, axuv_df, cad_mesh=False, show_plots=False):
         from axuv.cad_files import import_aug_mesh
 
         import_aug_mesh(world=world)
-    else:
+    elif not etendue_mode:
         wall_polygon = [[1, -1.2], [2.5, -1.2], [2.5, 1.2], [1, 1.2]]
         wall_mesh = axisymmetric_mesh_from_polygon(wall_polygon)
         wall_mesh.parent = world
         wall_mesh.material = AbsorbingSurface()
+    elif etendue_mode:
+        pass
 
     if show_plots:
         from axuv.plotting import show_camera_lines_of_sight

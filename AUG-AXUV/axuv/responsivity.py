@@ -28,6 +28,7 @@ _DATA_DIR = Path(__file__).parent / "data"
 # are identical.  Above this value the SiO2 entrance window transmittance
 # drops for radiation-damaged diodes.
 DEGRADED_THRESHOLD_EV: float = 89.4308
+DETECTOR_CALIBRATION_AMPER_PER_WATT: float = 0.27
 
 # Module-level cache — populated once on the first call
 _sensitivity: np.ndarray | None = None
