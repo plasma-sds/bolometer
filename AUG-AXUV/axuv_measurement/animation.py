@@ -452,4 +452,3 @@ def update_with_q2(index, fig, shotno, data2d, diagname, equ, timesignal,
         lines[5][0].set_data(range(1, numofsignals2 + 1), data2d2.T[index])
         title.set_text('#{} {} @ {:.6f} s'.format(
             shotno, diagname.split('_')[0], timesignal[index]))
-```Now let me finish with the package `__init__.py` and the updated `axuv_scripts.py`:

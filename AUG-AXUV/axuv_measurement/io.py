@@ -1,8 +1,7 @@
 """
 axuv/io.py  –  HDF5 I/O, data extraction utilities, and calibration routines.
 
-NOTE: axuv_to_hdf() and calibrate_and_smooth() are intentionally left verbatim
-      pending a logic rewrite; do not modify them in this file.
+NOTE: axuv_to_hdf() and calibrate_and_smooth() are due for a logic rewrite
 """
 import os
 import h5py

@@ -12,7 +12,7 @@ def emission_function_3d(
     x, y, z, part, plasma, min_wavelengths, max_wavelengths, spectral_bins
 ):
     """
-    Returns emission [W m^-3 sr^-1 nm^-1] at (x, y, z) integrated over
+    Returns spectral emission [W m^-3 sr^-1 nm^-1] at (x, y, z) in the
     spectral window `part`.
     """
     spectrum = Spectrum(min_wavelengths[part], max_wavelengths[part], spectral_bins)

@@ -9,7 +9,7 @@ from matplotlib.patches import Polygon as MplPolygon
 
 from axuv.geometry import point3d_to_rz
 from axuv.io import open_emission_data
-from axuv.responsivity import get_weighted_power
+from axuv.responsivity import get_weighted_power, DETECTOR_CALIBRATION_AMPER_PER_WATT
 
 # Matches any of the four emission filename prefixes defined in
 # calculate_emissions_for_raytransfer.py:
@@ -332,7 +332,7 @@ def plot_time_evolution(
         diode_measurements = emission_dict["diode_measurements"]
         diode_data = diode_measurements[diode_first:diode_last]
         diode_data_evolution[:, i] = (
-            get_weighted_power(diode_data, energies, degraded=degraded) * noise_array
+            get_weighted_power(diode_data, energies, degraded=degraded) * noise_array / DETECTOR_CALIBRATION_AMPER_PER_WATT
         )
 
     if plot:
