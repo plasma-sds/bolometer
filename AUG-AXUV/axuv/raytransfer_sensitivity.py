@@ -51,7 +51,7 @@ from scipy.spatial import ConvexHull
 
 from axuv.cameras import (
     MAX_WAVELENGTHS,
-    MIN_WAVELENGTHS,
+    WAVELENGTH_BIN_EDGES,
     SECTOR_CAMERAS,
     SPECTRAL_BINS,
     create_observable_world,
@@ -63,7 +63,6 @@ from axuv.interpolation import (
     POLOIDAL_ZMIN,
 )
 from axuv.io import load_axuv_df
-from axuv.plasma import get_spectrum_part
 
 MAX_BIN_WIDTH = MAX_WAVELENGTHS[-1] / SPECTRAL_BINS
 
@@ -394,14 +393,7 @@ if __name__ == "__main__":
         print(f"  Active voxels: {num_cells} / {RESOLUTION_R * RESOLUTION_Z}")
 
         # ── Wavelength grid ──────────────────────────────────────────────────────
-        wavelengths = np.unique(
-            np.concatenate(
-                [
-                    get_spectrum_part(i, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS)
-                    for i in range(3)
-                ]
-            )
-        )
+        wavelengths = WAVELENGTH_BIN_EDGES
         energies_eV = 1239.8 / wavelengths
         total_wavelength_bins = len(wavelengths) - 1
         print(
@@ -418,8 +410,8 @@ if __name__ == "__main__":
             cell_centres,
             ray_transfer_grid,
             grid_laplacian,
-            wavelengths,
-            energies_eV,
+            wavelengths,  # these are the wavelength bin edges
+            energies_eV,  # these are the energy values corresponding to the bin edges
             diode_names,
         )
 
@@ -542,7 +534,6 @@ if __name__ == "__main__":
 
         raytraced_etendue = np.zeros(NUM_OF_DIODES)
         raytraced_error = np.zeros(NUM_OF_DIODES)
-        raytracing_solid_angle = np.zeros(NUM_OF_DIODES)
 
         i = 0
         for camera in cameras:
@@ -554,7 +545,6 @@ if __name__ == "__main__":
                     f"  [{i + 1}/{NUM_OF_DIODES}] {foil.name} (etendue={etendue:.2e}, error={error:.2e})",
                     end="\r",
                 )
-                raytracing_solid_angle[i] = foil.solid_angle
                 raytraced_etendue[i] = etendue
                 raytraced_error[i] = error
                 i += 1
@@ -564,6 +554,5 @@ if __name__ == "__main__":
             h5f["raytraced_etendue"] = raytraced_etendue
             h5f["raytraced_error"] = raytraced_error
             h5f["diode_names"] = diode_names
-            h5f["raytracing_solid_angle"] = raytracing_solid_angle
 
         print(f"\nEtendue results saved to {HDF5_PATH}")

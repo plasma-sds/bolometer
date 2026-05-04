@@ -3,9 +3,6 @@ from raysect.core import Point3D, Vector3D
 from raysect.optical import Spectrum
 
 
-def get_spectrum_part(part: int, min_wavelengths, max_wavelengths, spectral_bins: int):
-    """Returns a linspace of wavelengths for spectral window `part`."""
-    return np.linspace(min_wavelengths[part], max_wavelengths[part], spectral_bins + 1)
 
 
 def emission_function_3d(

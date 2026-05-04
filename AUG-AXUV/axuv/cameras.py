@@ -44,6 +44,17 @@ SPECTRAL_BINS = 100  # number of spectral bins in each spectrum part
 MIN_WAVELENGTHS = [1, 12.4, 124.0]  # nm  (photon energies: 1240, 100, 10 eV)
 MAX_WAVELENGTHS = [12.4, 124.0, 1240.0]  # nm  (photon energies:  100,  10,  1 eV)
 
+WAVELENGTH_BIN_EDGES: np.ndarray = np.unique(
+    # removes the duplicate edges that occur when concatenating
+    np.concatenate(
+        # concatenate wavelength bin edges from all spectral windows
+        [
+            # Returns a linspace of wavelengths for spectral window `i`.
+            np.linspace(MIN_WAVELENGTHS[i], MAX_WAVELENGTHS[i], SPECTRAL_BINS + 1)
+            for i in range(len(MIN_WAVELENGTHS))
+        ]
+    )
+)
 
 def get_sensor_data(sensor, axuv_df, channelIDX=None):
     """

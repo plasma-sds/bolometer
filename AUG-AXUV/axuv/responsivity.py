@@ -21,6 +21,8 @@ from pathlib import Path
 
 import numpy as np
 
+from axuv.cameras import WAVELENGTH_BIN_EDGES
+
 # Responsivity data lives alongside the package source in axuv/data/
 _DATA_DIR = Path(__file__).parent / "data"
 
@@ -74,46 +76,33 @@ def degraded_sensitivity_function(where: np.ndarray | float) -> np.ndarray | flo
 
 def get_weighted_power(
     diode_data: np.ndarray,
-    spectrum_energies: np.ndarray,
     degraded: bool = False,
 ) -> np.ndarray:
     """
     Integrates per-bin spectral power against the AXUV responsivity curve.
+    Uses WAVELENGTH_BIN_EDGES to calculate the energy bin edges for the integration.
 
     Parameters
     ----------
     diode_data : ndarray of shape (num_diodes, num_energy_bins)
         Spectral power for each diode at each energy bin centre.
-    spectrum_energies : ndarray of shape (num_energy_bins,)
-        Photon energy [eV] at each bin centre.  May be in any order but must
-        be consistent with the column axis of diode_data.
     degraded : bool
         If True, use the degraded-diode responsivity curve; otherwise nominal.
 
     Returns
     -------
     weighted_power : ndarray of shape (num_diodes,)
+        Integrated power for each diode weighted by the responsivity curve.
     """
+    energy_bin_edges = WAVELENGTH_BIN_EDGES / 1239.8  # nm to eV
     responsivity = degraded_sensitivity_function if degraded else sensitivity_function
-    n = len(spectrum_energies)
     weighted_power = np.zeros(diode_data.shape[0])
 
-    for i, energy in enumerate(spectrum_energies):
-        # Half-widths to adjacent bin centres; mirror boundary conditions
-        dE_1 = (
-            abs(energy - spectrum_energies[i - 1]) / 2
-            if i > 0
-            else abs(energy - spectrum_energies[i + 1]) / 2
-        )
-        dE_2 = (
-            abs(energy - spectrum_energies[i + 1]) / 2
-            if i < n - 1
-            else abs(energy - spectrum_energies[i - 1]) / 2
-        )
-
-        # spectrum_energies is in decreasing order, so range is [energy+dE_1, energy−dE_2]
-        averaging_range = np.linspace(energy + dE_1, energy - dE_2, 100)
+    for i in range(len(energy_bin_edges) - 1):
+        averaging_range = np.linspace(energy_bin_edges[i], energy_bin_edges[i+1], 100)
         average_weight = float(np.average(responsivity(averaging_range)))
-        weighted_power += diode_data[:, i] * average_weight
+        # for the integration we need to multiply by the bin width
+        bin_width = abs(energy_bin_edges[i+1] - energy_bin_edges[i])
+        weighted_power += diode_data[:, i] * average_weight * bin_width
 
     return weighted_power

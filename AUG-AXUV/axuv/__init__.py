@@ -28,8 +28,8 @@ interpolation  Interpolates JOREK unstructured-grid data onto a rectangular
                poloidal grid; stores the grid extent constants.
 cameras        Camera hardware constants, sector → camera mapping
                (SECTOR_CAMERAS), and the Raysect scene builder.
-plasma         Spectral helpers (get_spectrum_part) and the per-voxel
-               emission function used in Stage 2.
+               Also, the spectral configuration and WAVELENGTH_BIN_EDGES.
+plasma         Per-voxel emission function used in Stage 2.
 responsivity   AXUV spectral responsivity curves and weighted-power
                integration (get_weighted_power).
 io             Environment-variable path constants, AXUV geometry DataFrame,
@@ -77,11 +77,9 @@ from axuv.interpolation import (
     POLOIDAL_ZMAX,
 )
 
-from axuv.plasma import get_spectrum_part
-
 # SECTOR_CAMERAS is a plain dict — importing it does not construct any Raysect
 # objects and is safe at package level.
-from axuv.cameras import SECTOR_CAMERAS
+from axuv.cameras import SECTOR_CAMERAS, WAVELENGTH_BIN_EDGES
 
 # get_weighted_power is pure NumPy; responsivity CSVs are loaded lazily.
 from axuv.responsivity import get_weighted_power
@@ -96,10 +94,9 @@ __all__ = [
     "interpolate_parameters",
     "POLOIDAL_RMIN", "POLOIDAL_RMAX",
     "POLOIDAL_ZMIN", "POLOIDAL_ZMAX",
-    # plasma
-    "get_spectrum_part",
     # cameras
     "SECTOR_CAMERAS",
+    "WAVELENGTH_BIN_EDGES",
     # responsivity
     "get_weighted_power",
 ]

@@ -37,7 +37,8 @@ from axuv.interpolation import (
     interpolate_parameters,
 )
 from axuv.io import DATADIR, SAVEDIR, load_axuv_df
-from axuv.plasma import emission_function_3d, get_spectrum_part
+from axuv.plasma import emission_function_3d
+from axuv.cameras import WAVELENGTH_BIN_EDGES
 
 
 def _parse_args():
@@ -303,15 +304,7 @@ if __name__ == "__main__":
     # Define spectral measurements array - has to be size: num of diodes by spectral bins
     NUM_OF_DIODES = sensitivity_matrix.shape[0]
 
-    wavelengths = np.unique(
-        np.array(
-            [
-                *get_spectrum_part(0, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS),
-                *get_spectrum_part(1, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS),
-                *get_spectrum_part(2, MIN_WAVELENGTHS, MAX_WAVELENGTHS, SPECTRAL_BINS),
-            ]
-        )
-    )
+    wavelengths = WAVELENGTH_BIN_EDGES
     wavelength_centers = (wavelengths[:-1] + wavelengths[1:]) / 2
     energies_eV = 1239.8 / wavelength_centers
     total_wavelength_bins = len(wavelengths) - 1
