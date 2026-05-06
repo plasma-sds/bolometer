@@ -1,29 +1,19 @@
-# %% 
+# %%
 import h5py
 import pickle
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 
 from pathlib import Path
 
-from axuv.plotting import plot_voxel_data
-from axuv.io import AXUV_DATAFILE, _GC_LINES_PATH
+from axuv.plotting import plot_voxel_data, set_plt_rcparams
+from axuv.io import PROJECT_ROOT, _GC_LINES_PATH
 
 
-project_dir = "/tokp/work/lefer/AUG-AXUV"
+project_dir = PROJECT_ROOT
+data_dir = project_dir / "axuv" / "data"
 
 # Update default matplotlib parameters for LaTeX plotting for articles
-plt.rcParams.update({
-    "text.usetex": True,
-    "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
-    "font.family": "serif",  # tells matplotlib to use \rmfamily in the LaTeX doc
-    "font.size": 14,
-    "figure.dpi": 300,
-    "figure.constrained_layout.use": True,
-    "image.cmap": 'inferno',
-    "lines.linewidth": 2,
-})
+set_plt_rcparams()
 
 with open(_GC_LINES_PATH, "rb") as fp:
     gc_d_lines = pickle.load(fp)
@@ -32,10 +22,10 @@ print(f"Project root: {project_dir}")
 
 # %% Load and plot raytransfer data
 RAYTRANSFER_PATHS = [
-    "/tokp/work/lefer/AUG-AXUV/axuv/data/raytransfer_S16_norefl.h5",
-    "/tokp/work/lefer/AUG-AXUV/axuv/data/raytransfer_S05_norefl.h5",
-    "/tokp/work/lefer/AUG-AXUV/axuv/data/raytransfer_S16_refl.h5",
-    "/tokp/work/lefer/AUG-AXUV/axuv/data/raytransfer_S05_refl.h5",
+    data_dir / "raytransfer_S16_norefl.h5",
+    data_dir / "raytransfer_S05_norefl.h5",
+    data_dir / "raytransfer_S16_refl.h5",
+    data_dir / "raytransfer_S05_refl.h5",
 ]
 
 raytransfer_path = RAYTRANSFER_PATHS[0]
@@ -52,9 +42,9 @@ try:
     print(f"Sensitivity matrix loaded from {raytransfer_path}")
     print(f"Number of diodes = {sensitivity_matrix.shape[0]}, number of active voxels = {sensitivity_matrix.shape[1]}, number of spectral bins = {sensitivity_matrix.shape[2]}")
     print(f"Resolution in R: {grid_centres.shape[0]}, Resolution in Z: {grid_centres.shape[1]}")
-    reflections = False if "norefl" in raytransfer_path else True
+    reflections = False if "norefl" in str(raytransfer_path) else True
     # Create folder in project_dir/output/ named only the raytransfer filename without extension
-    output_dir = Path(project_dir) / "output" / Path(raytransfer_path).stem
+    output_dir = Path(project_dir) / "output" / raytransfer_path.stem
     output_dir.mkdir(parents=True, exist_ok=True)
 except Exception as e:
     print(f"Could not load sensitivity matrix from {raytransfer_path}: {e}")
@@ -76,7 +66,7 @@ for i in range(sensitivity_matrix.shape[0]):
             ax.add_line(line)  #, color="white", linewidth=.5)
         plot_voxel_data(ax, grid_centres, sensitivity_matrix[i, :, 0])
         fig.savefig(output_dir / f"diode_{i}.png", dpi=300)
-        
+
     # elif reflections:
     #     # Create subdirectories for each diode
     #     diode_output_dir = output_dir / f"diode_{i}"

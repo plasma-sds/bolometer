@@ -4,26 +4,19 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from axuv.io import AXUV_DATAFILE
+from axuv.io import AXUV_DATAFILE, PROJECT_ROOT
+from axuv.plotting import set_plt_rcparams
 
 
 # Update default matplotlib parameters for LaTeX plotting for articles
-plt.rcParams.update({
-    "text.usetex": True,
-    "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
-    "font.family": "serif",  # tells matplotlib to use \rmfamily in the LaTeX doc
-    "font.size": 14,
-    "figure.dpi": 300,
-    "figure.constrained_layout.use": True,
-    "image.cmap": 'inferno',
-    "lines.linewidth": 2,
-})
+set_plt_rcparams()
 
-project_dir = "/tokp/work/lefer/AUG-AXUV"
+project_dir = PROJECT_ROOT
+data_dir = project_dir / "axuv" / "data"
 
 # %% Load etendue data
-ETENDUE_PATH_S5 = "/tokp/work/lefer/AUG-AXUV/axuv/data/etendue_S5.h5"
-ETENDUE_PATH_S16 = "/tokp/work/lefer/AUG-AXUV/axuv/data/etendue_S16.h5"
+ETENDUE_PATH_S5 = data_dir / "etendue_S5.h5"
+ETENDUE_PATH_S16 = data_dir / "etendue_S16.h5"
 with h5py.File(ETENDUE_PATH_S5, "r") as h5f:
     raytraced_etendue_s5 = np.asarray(h5f["raytraced_etendue"])
     raytraced_error_s5 = np.asarray(h5f["raytraced_error"])
@@ -111,4 +104,5 @@ for i in range(3):
     ax.axvline(i*48 + 47.5, linestyle='--', color='gray', linewidth=1)
 plt.ylim(0.3e-9, 1e-9)
 plt.xlim(0, 192)
-plt.savefig(project_dir + "/output/etendue_comparison.png")
+plt.savefig(project_dir / "output" / "etendue_comparison.png")
+plt.savefig(project_dir / "output" / "etendue_comparison.eps", format="EPS")

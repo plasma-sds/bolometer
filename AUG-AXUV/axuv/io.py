@@ -11,6 +11,8 @@ if DATADIR_ENV is None:
     DATADIR_ENV = str(Path(__file__).parent) + "/data"
 DATADIR = str(DATADIR_ENV) + "/"
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 CURRENTDIR = DATADIR + "/" + str(os.environ.get("currentdir")) + "/"
 SAVEDIR = CURRENTDIR + "output/"
 

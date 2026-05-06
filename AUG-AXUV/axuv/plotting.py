@@ -5,6 +5,19 @@ from matplotlib.patches import Polygon as Rectangle
 from axuv.geometry import point3d_to_rz
 
 
+def set_plt_rcparams():
+    """Sets the default matplotlib rcParams for LaTeX plotting in articles."""
+    plt.rcParams.update({
+        "text.usetex": True,
+        "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
+        "font.family": "serif",  # tells matplotlib to use \rmfamily in the LaTeX doc
+        "font.size": 16,
+        "figure.dpi": 300,
+        "figure.constrained_layout.use": True,
+        "image.cmap": 'inferno',
+        "lines.linewidth": 2,
+    })
+
 def plot_interpolated(interpolated, title="", cbarlabel="", gc_d_lines=None, show=True):
     """
     Plots interpolated values along with the contours of plasma facing components.
