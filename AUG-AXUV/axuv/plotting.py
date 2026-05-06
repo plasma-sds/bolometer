@@ -1,8 +1,13 @@
+import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 from matplotlib.collections import PatchCollection
-from matplotlib.patches import Polygon as Rectangle
+from matplotlib.patches import Rectangle
 
 from axuv.geometry import point3d_to_rz
+from axuv.interpolation import (
+    POLOIDAL_RMIN, POLOIDAL_RMAX, POLOIDAL_ZMIN, POLOIDAL_ZMAX
+)
 
 
 def set_plt_rcparams():
@@ -177,6 +182,57 @@ def plot_voxel_data(
     if title is not None:
         ax.set_title(title)
     return ax
+
+
+def plot_sensitivity_map(
+    ax, grid_centres, voxel_map, sensitivity_1d,
+    cmap="inferno", vmin=None, vmax=None
+):
+    """
+    Plot a 1-D active-voxel sensitivity array on the full 2-D poloidal grid.
+    Sensitivity is plotted with logarithmic colormap.
+
+    :param ax:             Existing axis or None to create one.
+    :param grid_centres:   (nx, ny, 2) – (R, Z) of each grid cell centre.
+    :param voxel_map:      (nx, 1, ny) or (nx, ny) – 1-D voxel index per cell, -1 if inactive.
+    :param sensitivity_1d: (num_cells,) – value for each active voxel (one diode, one bin).
+    :param cmap:           Colormap name.
+    :param vmin, vmax:     Colorbar limits.
+    :returns:              (ax, im) – axis and AxesImage (for attaching a colorbar).
+    """
+    vm = voxel_map[:, 0, :] if voxel_map.ndim == 3 else voxel_map  # (nx, ny)
+    nx, ny = vm.shape
+
+    data_2d = np.full((nx, ny), np.nan)
+    active = vm >= 0
+    data_2d[active] = sensitivity_1d[vm[active]]
+
+    dR = abs(grid_centres[1, 0, 0] - grid_centres[0, 0, 0])
+    dZ = abs(grid_centres[0, 1, 1] - grid_centres[0, 0, 1])
+    extent = (
+        grid_centres[0, 0, 0] - dR / 2,
+        grid_centres[-1, 0, 0] + dR / 2,
+        grid_centres[0, 0, 1] - dZ / 2,
+        grid_centres[0, -1, 1] + dZ / 2,
+    )
+
+    cmap_obj = plt.get_cmap(cmap).copy()
+    cmap_obj.set_bad("black")
+
+    if ax is None:
+        _, ax = plt.subplots()
+
+    im = ax.imshow(
+        data_2d.T,
+        extent=extent,
+        origin="lower",
+        aspect="equal",
+        cmap=cmap_obj,
+        norm=LogNorm(vmin=vmin, vmax=vmax),
+    )
+    ax.set_xlim(POLOIDAL_RMIN - 0.1, POLOIDAL_RMAX + 0.1)
+    ax.set_ylim(POLOIDAL_ZMIN - 0.1, POLOIDAL_ZMAX + 0.2)
+    return ax, im
 
 
 def plot_etendue(raytraced_etendue, raytraced_error, aug_etendue):
