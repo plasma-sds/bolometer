@@ -1,8 +1,6 @@
-import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib.collections import PatchCollection
-from matplotlib.patches import Polygon as MplPolygon
+from matplotlib.patches import Polygon as Rectangle
 
 from axuv.geometry import point3d_to_rz
 
@@ -114,23 +112,38 @@ def show_camera_lines_of_sight_3D(cameralist):
 
 
 # ── Voxel-grid visualisation ──────────────────────────────────────────────────
-def has_colorbar(fig) -> bool:
-    """Returns True if the figure already contains a colorbar axes."""
-    return any(ax.get_label() == "<colorbar>" for ax in fig.axes)
-
 
 def plot_voxel_data(
-    ax, voxels, voxel_values, cmap="inferno", vmin=None, vmax=None, title=None
+    ax, grid_centres, voxel_values, cmap="inferno", vmin=None, vmax=None, title=None
 ):
     """
-    Renders a ToroidalVoxelGrid as a PatchCollection.
+    Renders a RayTransferGrid as a PatchCollection. Useful for both visualising
+    the voxel grid and overlaying either the sensitivity matrix data or radiation data.
 
+    :param ax:           Existing axis to plot on, or None to create a new one.
+    :param grid_centres: (np.ndarray) – An array with shape (n_radius, n_height, 2)
+                         containing the (R, Z) pairs of the grid centres.
+                         Created by np.stack((cell_r_grid, cell_z_grid), axis=-1)
     :param voxel_values: 1-D array of values to colour by, or None to draw
                          empty cell outlines only.
+    :param cmap:         Colormap to use for colouring the voxels.
+    :param vmin:         Minimum value for the colorbar.
+    :param vmax:         Maximum value for the colorbar.
+    :param title:        Title for the plot.
     """
+    # determine the R and Z resolution based on neighboring cells in grid_centres
+    dR = abs(grid_centres[1, 0, 0] - grid_centres[0, 0, 0])
+    dZ = abs(grid_centres[0, 1, 1] - grid_centres[0, 0, 1])
+
     patches = [
-        MplPolygon([(v.x, v.y) for v in voxel.vertices], closed=True)
-        for voxel in voxels
+        Rectangle(
+            (grid_centres[i, j, 0] - dR / 2,   # R_centre − half-width
+             grid_centres[i, j, 1] - dZ / 2),  # Z_centre − half-height
+            dR,   # width  in R
+            dZ,   # height in Z
+        )
+        for i in range(grid_centres.shape[0])
+        for j in range(grid_centres.shape[1])
     ]
     p = PatchCollection(patches, cmap=cmap)
 
@@ -146,109 +159,11 @@ def plot_voxel_data(
     if ax is None:
         _, ax = plt.subplots()
     ax.add_collection(p)
-    ax.set_xlim(voxels.min_radius, voxels.max_radius)
-    ax.set_ylim(voxels.min_height, voxels.max_height)
+    ax.autoscale_view()
     ax.axis("equal")
     if title is not None:
         ax.set_title(title)
     return ax
-
-
-# --- Animation
-def plot_init():
-    """
-    Creates a two-panel figure: large top panel for voxel emission,
-    small bottom panel for the spectral responsivity curve.
-    """
-    fig = plt.figure(figsize=(4, 8))
-    gs = fig.add_gridspec(3, 1, height_ratios=[3.9, 0.1, 1])
-    ax1 = fig.add_subplot(gs[0])
-    ax2 = fig.add_subplot(gs[2])
-    return fig, [ax1, ax2]
-
-
-def plot_voxel_radiation(
-    index,
-    axlist,
-    emission_data,
-    voxel_grid,
-    energies,
-    gc_d_lines=None,
-    bins_per_frame=10,
-):
-    """
-    FuncAnimation callback: sums emission over `bins_per_frame` spectral bins
-    and marks the corresponding energy range on the responsivity curve.
-
-    All data is passed explicitly — no implicit global dependencies.
-    """
-    from axuv.responsivity import sensitivity_function
-
-    ax1, ax2 = axlist
-    ax1.clear()
-    ax2.clear()
-
-    lo = bins_per_frame * index
-    hi = lo + bins_per_frame
-    plot_voxel_data(
-        ax=ax1,
-        voxels=voxel_grid,
-        voxel_values=np.sum(emission_data[lo:hi, :], axis=0),
-        title="Emitted radiation\n(sum over spectral bin group)",
-    )
-    ax1.set_facecolor("k")
-    if gc_d_lines is not None:
-        for line in gc_d_lines:
-            ax1.plot(line[0], line[1], lw=0.5, c="white")
-    ax1.set_xlim(1, 2.2)
-    ax1.set_ylim(-1.2, 1)
-    ax1.set_xlabel("R")
-    ax1.set_ylabel("z")
-
-    ax2.plot(energies, sensitivity_function(energies))
-    ax2.axvline(energies[lo], color="red")
-    ax2.axvline(energies[min(hi, len(energies) - 1)], color="red")
-    ax2.set_xscale("log")
-    ax2.set_xlim(0.9, 5000)
-    ax2.grid()
-    ax2.set_title("Spectral responsivity")
-    ax2.set_xlabel("Photon energy [eV]")
-
-    return [ax1, ax2]
-
-
-def animate_voxel_emissions(
-    emission_data,
-    voxel_grid,
-    energies,
-    gc_d_lines=None,
-    bins_per_frame=10,
-    interval=500,
-):
-    """
-    Creates an animation of voxel emission stepping through spectral bin groups.
-
-    :param emission_data: ndarray (num_wl_bins, num_voxels) — note: rows = bins,
-                          cols = voxels (as stored by calculate_emissions_for_raytransfer.py).
-    :param voxel_grid:    ToroidalVoxelGrid object.
-    :param energies:      1-D array of photon energies [eV] corresponding to rows.
-    :param gc_d_lines:    optional plasma-facing component contours.
-    :param bins_per_frame: number of wavelength bins summed per animation frame.
-    :param interval:      frame delay in milliseconds.
-    :returns:             HTML5 video string for display in Jupyter notebooks.
-    """
-    n_frames = emission_data.shape[0] // bins_per_frame
-    fig, axlist = plot_init()
-
-    ani = animation.FuncAnimation(
-        fig,
-        plot_voxel_radiation,
-        frames=range(n_frames),
-        interval=interval,
-        blit=False,
-        fargs=(axlist, emission_data, voxel_grid, energies, gc_d_lines, bins_per_frame),
-    )
-    return ani.to_html5_video()
 
 
 def plot_etendue(raytraced_etendue, raytraced_error, aug_etendue):
@@ -258,7 +173,7 @@ def plot_etendue(raytraced_etendue, raytraced_error, aug_etendue):
     ax.errorbar(range(len(raytraced_etendue)), raytraced_etendue, yerr=raytraced_error, fmt='none', ecolor='gray', capsize=3)
     ax.plot(aug_etendue, label="AUG")
     ax.set_xlabel("Diode index")
-    ax.set_ylabel("Etendue")
+    ax.set_ylabel(r"Etendue/4$\pi$ [m$^2$]")
     ax.legend()
 
     return fig, ax
