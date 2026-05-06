@@ -4,6 +4,7 @@ from pathlib import Path
 
 import h5py
 import pandas as pd
+import numpy as np
 
 DATADIR_ENV = os.environ.get("datadir")
 if DATADIR_ENV is None:
@@ -40,6 +41,14 @@ with open(_GC_LINES_PATH, "rb") as fp:
 
 
 # ── HDF5 data-loading helpers ─────────────────────────────────────────────────
+def load_etendue(sector: str):
+    etendue_path = DATADIR_ENV + f"/etendue_{sector}.h5"
+    with h5py.File(etendue_path, "r") as h5f:
+        raytraced_etendue = np.asarray(h5f["raytraced_etendue"])
+        raytraced_error = np.asarray(h5f["raytraced_error"])
+        diode_names = np.asarray(h5f["diode_names"], dtype=str)
+    print(f"Loaded raytraced etendue from {etendue_path}")
+    return raytraced_etendue, raytraced_error, diode_names
 
 
 def load_raytransfer_data(hdf5_path: str) -> dict:

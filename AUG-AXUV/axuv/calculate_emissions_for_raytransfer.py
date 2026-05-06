@@ -164,6 +164,7 @@ if __name__ == "__main__":
             laplacian = h5f["laplacian"][()]
             mask = h5f["mask"][()]
             completed_bins = h5f["completed_bins"][()]
+            diode_names = h5f["diode_names"][()]
         print("Sensitivity matrix loaded")
     except Exception as e:
         print(f"Could not load sensitivity matrix from {RAYTRANSFER_PATH}: {e}")
@@ -381,5 +382,6 @@ if __name__ == "__main__":
         file.create_dataset("wavelengths", data=wavelengths)
         file.create_dataset("energies", data=energies_eV)
         file.create_dataset("diode_measurements", data=measured_spectra)
+        file.create_dataset("diode_names", data=diode_names)
 
     print("Saved emission data.\n")

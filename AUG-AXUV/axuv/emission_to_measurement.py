@@ -34,13 +34,15 @@ All responsivity curve helpers live in axuv.responsivity.
 All data-loading helpers live in axuv.io.
 """
 
+import os
 import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from axuv.plotting import plot_time_evolution
+from axuv.responsivity import get_weighted_power, DETECTOR_CALIBRATION_AMPER_PER_WATT
+from axuv.io import open_emission_data, load_etendue
 
 # ── Filename pattern helpers ───────────────────────────────────────────────────
 # Mirror the four save-names defined in calculate_emissions_for_raytransfer.py.
@@ -48,6 +50,10 @@ from axuv.plotting import plot_time_evolution
 # Captures the resolution/masking variant (e.g. "refl" or "norefl", "lowres", "highres_masked").
 _VARIANT_RE = re.compile(r"^emissions_((?:refl|norefl)(?:_low|_high)res(?:_masked)?)_")
 
+# Matches any of the four emission filename prefixes defined in
+# calculate_emissions_for_raytransfer.py:
+#   emissions_lowres_<time>.h5          emissions_lowres_masked_<time>.h5
+#   emissions_highres_<time>.h5         emissions_highres_masked_<time>.h5
 # Strips the full prefix to leave only the time value string.
 _TIME_RE = re.compile(r"^emissions_(?:refl|norefl)(?:_low|_high)res(?:_masked)?_")
 
@@ -61,6 +67,166 @@ _COMBINATIONS: list[tuple[str, bool, bool]] = [
     ("degraded_no_noise", False, True),
     ("degraded_noise", True, True),
 ]
+
+def calculate_time_evolution(
+    diode_first,
+    diode_last,
+    filenames,
+    etendue,
+    noise=False,
+    degraded=False
+):
+    """
+    Calculates the time evolution of the synthetic AXUV diode signals.
+    The result is returned as a 2D array of shape (num_diodes, num_times), and
+    the time array is returned separately.
+    The units of the diode signals are W/m^2 line integrated brightness.
+    This is the same unit as in the AUG AXUV shotfiles.
+
+    The user may add Gaussian noise with sigma=10% to simulate measurement
+    uncertainty.  Either the manufacturer-specified or the degraded spectral
+    response function can be applied.
+
+    Parameters
+    ----------
+    diode_first : int
+        Index of the first diode to include (0-based, inclusive).
+    diode_last : int
+        Index of the last diode to include (0-based, exclusive).
+    filenames : list of str
+        Full paths to the emission HDF5 files produced by
+        calculate_emissions_for_raytransfer.py.  The physical time [s] is
+        parsed from each basename after stripping the known prefix
+        (emissions_lowres_, emissions_lowres_masked_,
+         emissions_highres_, emissions_highres_masked_) and the .h5 suffix.
+    noise : bool
+        If True, multiply each diode's signal by a fixed per-diode Gaussian
+        factor (mean=1, sigma=0.1) to simulate calibration uncertainty.
+    degraded : bool
+        If True, apply the degraded-diode responsivity curve.
+
+    Returns
+    -------
+    diode_data_evolution, times
+    """
+    times = np.array(
+        [
+            float(_TIME_RE.sub("", os.path.basename(s)).removesuffix(".h5"))
+            for s in filenames
+        ]
+    )
+    numofdiodes = diode_last - diode_first
+    diode_data_evolution = np.zeros([numofdiodes, len(filenames)])
+    noise_array = (
+        np.random.normal(1.0, 0.1, numofdiodes) if noise else np.ones(numofdiodes)
+    )
+    for i, fname in enumerate(filenames):
+        emission_dict = open_emission_data(fname)
+        diode_measurements = emission_dict["diode_measurements"]
+        diode_data = diode_measurements[diode_first:diode_last]
+        # First multiply by noise, then divide by detector calibration to get back the detected power value,
+        # then divide by the etendue (4 pi is also needed) to arrive at the line integrated brightness
+        # that is contained in the AUG AXUV shotfiles
+        diode_data_evolution[:, i] = (
+            get_weighted_power(diode_data, degraded=degraded) * noise_array * 4 * np.pi / (DETECTOR_CALIBRATION_AMPER_PER_WATT * etendue[diode_first:diode_last])
+        )
+    print(f"Max: {diode_data_evolution.max():.2e}, Min: {diode_data_evolution.min():.2e}, Etendue average: {etendue.mean():.2e}, Diode data average: {diode_data_evolution.mean():.2e}")
+
+    return diode_data_evolution, times
+
+# --- Synthetic measurement data plotting ---
+latex = True
+
+if latex:
+    plt.rcParams.update({
+        "text.usetex": True,
+        "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
+        "font.family": "serif",  # tells matplotlib to use \rmfamily in the LaTeX doc
+    })
+else:
+    plt.rcParams.update({"text.usetex": False})
+
+def plot_time_evolution(
+    diode_first,
+    diode_last,
+    filenames,
+    etendue,
+    noise=False,
+    degraded=False,
+    vmin=None,
+    vmax=None,
+    remove_offset=True,
+):
+    """
+    Plots the time evolution of the synthetic measurement AXUV diode signals
+    with log normalisation.  Returns the figure, axis, pcolormesh object, and
+    the data as a 2-D array (diodes × time).
+
+    The user may add Gaussian noise with sigma=10% to simulate measurement
+    uncertainty.  Either the manufacturer-specified or the degraded spectral
+    response function can be applied.
+
+    Optionally, the time offset is removed from the time array to start from 0.
+
+    Parameters
+    ----------
+    diode_first : int
+        Index of the first diode to include (0-based, inclusive).
+    diode_last : int
+        Index of the last diode to include (0-based, exclusive).
+    filenames : list of str
+        Full paths to the emission HDF5 files produced by
+        calculate_emissions_for_raytransfer.py.  The physical time [s] is
+        parsed from each basename after stripping the known prefix
+        (emissions_lowres_, emissions_lowres_masked_,
+         emissions_highres_, emissions_highres_masked_) and the .h5 suffix.
+    noise : bool
+        If True, multiply each diode's signal by a fixed per-diode Gaussian
+        factor (mean=1, sigma=0.1) to simulate calibration uncertainty.
+    degraded : bool
+        If True, apply the degraded-diode responsivity curve.
+    plot : bool
+        If True (default) create and return the figure; otherwise return only
+        the data array.
+    vmin : float
+        Lower colour-scale limit for the log-normalised pcolormesh.
+    vmax : float
+        Upper colour-scale limit for the log-normalised pcolormesh.
+    remove_offset : bool
+        If True, remove the time offset from the time array to start from 0.
+
+    Returns
+    -------
+    When plot=True  : fig, ax, pcm, diode_data_evolution
+    When plot=False : diode_data_evolution, times
+
+    NOTE: diode_first / diode_last follow the ordering in which cameras and
+    their foil_detectors were appended when building the emission file.
+    Use HDFView or h5py to inspect an unfamiliar file.
+    """
+    diode_data_evolution, times = calculate_time_evolution(diode_first, diode_last, filenames, etendue, noise=noise, degraded=degraded)
+
+    if remove_offset:
+        times -= times[0]
+
+    vmax = diode_data_evolution.max() if vmax is None else vmax
+    vmin = diode_data_evolution.min() if vmin is None else (vmax / 1e4)
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    pcm = ax.pcolormesh(
+        times * 1e3,
+        range(diode_last - diode_first),
+        diode_data_evolution,
+        norm="log",
+        vmin=vmin,
+        vmax=vmax,
+        cmap="inferno",
+        shading="nearest",
+    )
+    ax.set_xlabel("Time [ms]")
+    ax.set_ylabel("Diode index")
+    plt.colorbar(pcm, ax=ax, label="Line integrated brightness [W/m²]")
+    return fig, ax, pcm, diode_data_evolution, times
 
 
 if __name__ == "__main__":
@@ -102,16 +268,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--vmin",
         type=float,
-        default=1e-5,
+        default=1e4,
         metavar="V",
-        help="Colour-scale lower limit for the log-normalised pcolormesh.",
+        help="Colour-scale lower limit for the log-normalised plot of the line integrated brightness.",
     )
     parser.add_argument(
         "--vmax",
         type=float,
-        default=1e-1,
+        default=1e8,
         metavar="V",
-        help="Colour-scale upper limit for the log-normalised pcolormesh.",
+        help="Colour-scale upper limit for the log-normalised plot of the line integrated brightness.",
     )
     args = parser.parse_args()
 
@@ -166,6 +332,7 @@ if __name__ == "__main__":
     title_prefix = emissions_dir.parent.parent.name + " " + sector
     fname_prefix = emissions_dir.parent.parent.name + "_" + sector + "_"
 
+    raytraced_etendue, _, diode_names = load_etendue(sector)
     total_files = sum(len(v) for v in groups.values())
     print(
         f"\nProcessing {total_files} file(s) across {len(groups)} variant group(s).\n"
@@ -195,13 +362,13 @@ if __name__ == "__main__":
                 np.random.seed(_NOISE_SEED)
 
             if not two_plots:
-                fig, ax, pcm, data = plot_time_evolution(
+                fig, ax, pcm, data, times = plot_time_evolution(
                     diode_first,
                     diode_last,
                     filenames,
+                    raytraced_etendue,
                     noise=noise,
                     degraded=degraded,
-                    plot=True,
                     vmin=args.vmin,
                     vmax=args.vmax,
                 )
@@ -211,23 +378,23 @@ if __name__ == "__main__":
 
             else:
 
-                fig1, ax1,pcm1, data1 = plot_time_evolution(
+                fig1, ax1,pcm1, data1, times1 = plot_time_evolution(
                     0,
                     48,
                     filenames,
+                    raytraced_etendue,
                     noise=noise,
                     degraded=degraded,
-                    plot=True,
                     vmin=args.vmin,
                     vmax=args.vmax,
                 )
-                fig2, ax2,pcm2, data2 = plot_time_evolution(
+                fig2, ax2,pcm2, data2, times2 = plot_time_evolution(
                     48,
                     96,
                     filenames,
+                    raytraced_etendue,
                     noise=noise,
                     degraded=degraded,
-                    plot=True,
                     vmin=args.vmin,
                     vmax=args.vmax,
                 )
@@ -235,28 +402,28 @@ if __name__ == "__main__":
                 ax2.set_facecolor("k")
 
                 fig1.savefig(out_dir / str(fname_prefix + "horiz_notitle.png"), bbox_inches="tight")
-                ax1.set_title(title_prefix + " Horizontal")
+                ax1.set_title(title_prefix + " Horizontal - synthetic")
                 fig1.savefig(out_dir / str(fname_prefix + "horiz.png"), bbox_inches="tight")
                 plt.close(fig1)
 
                 fig2.savefig(out_dir / str(fname_prefix + "vert_notitle.png"), bbox_inches="tight")
-                ax2.set_title(title_prefix + " Vertical")
+                ax2.set_title(title_prefix + " Vertical - synthetic")
                 fig2.savefig(out_dir / str(fname_prefix + "vert.png"), bbox_inches="tight")
                 plt.close(fig2)
 
-                _, _, _, data = plot_time_evolution(
+                data, times = calculate_time_evolution(
                     0,
                     96,
                     filenames,
+                    raytraced_etendue,
                     noise=noise,
-                    degraded=degraded,
-                    plot=True,
-                    vmin=args.vmin,
-                    vmax=args.vmax,
+                    degraded=degraded
                 )
 
-            np.savetxt(out_dir / "diode_evolution.csv", data, delimiter=",")
-            np.savetxt(out_dir / "times_ms.csv", times_ms, delimiter=",")
+            # Save the line integrated brightness evolution and times in one csv. First column is time in ms,
+            # each subsequent column is the line integrated brightness of a diode at that time point
+            # Time data is concatenated with diode evolution data to form a single csv
+            np.savetxt(out_dir / "brightness_evolution.csv", np.column_stack((times, data.T)), delimiter=",", header="Time [ms]," + ",".join(diode_names))
 
 
             print(f"    ✓ {subfolder}")
