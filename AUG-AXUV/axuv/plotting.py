@@ -173,7 +173,7 @@ def plot_etendue(raytraced_etendue, raytraced_error, aug_etendue):
     ax.errorbar(range(len(raytraced_etendue)), raytraced_etendue, yerr=raytraced_error, fmt='none', ecolor='gray', capsize=3)
     ax.plot(aug_etendue, label="AUG")
     ax.set_xlabel("Diode index")
-    ax.set_ylabel(r"Etendue/4$\pi$ [m$^2$]")
+    ax.set_ylabel(r"Etendue [m$^2$]")
     ax.legend()
 
     return fig, ax
