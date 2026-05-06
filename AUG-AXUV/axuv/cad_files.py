@@ -1,9 +1,31 @@
+import json
 import os
 from pathlib import Path
 
-from raysect.optical.library.metal import RoughTungsten
-from raysect.optical.material import AbsorbingSurface
+import numpy as np
+import raysect
+from raysect.optical import InterpolatedSF
+from raysect.optical.material import AbsorbingSurface, RoughConductor
 from raysect.primitive import Mesh, import_stl
+
+
+class RoughTungstenExtended(RoughConductor):
+    """
+    RoughTungsten with n/k data extended to 1 nm (n=1, k=0 anchor point),
+    since the sensitive range of the AXUV diodes is ~1-1000 nm.
+    """
+
+    def __init__(self, roughness):
+        data_path = (
+            Path(raysect.__file__).parent / "optical/library/metal/data/tungsten.json"
+        )
+        with open(data_path) as f:
+            data = json.load(f)
+        wl = np.concatenate([[1.0], data["wavelength"]])
+        n = np.concatenate([[1.0], data["index"]])
+        k = np.concatenate([[0.0], data["extinction"]])
+        super().__init__(InterpolatedSF(wl, n), InterpolatedSF(wl, k), roughness)
+
 
 CADMESH_PATH = Path(__file__).parent.parent
 
@@ -70,7 +92,7 @@ A_B_COILS = [
 AUG_FULL_MESH = VESSEL + INNER_HEAT_SHIELD + ICRH + DIVERTOR + A_B_COILS
 
 
-def import_aug_mesh(world, material=RoughTungsten(0.29)):
+def import_aug_mesh(world, material=RoughTungstenExtended(0.29)):
     """Imports the full AUG first wall mesh with default materials.
 
     :param str material: flag for material setting to us. 'ABSORBING' indicates
