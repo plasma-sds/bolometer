@@ -31,7 +31,7 @@ from .processing import ridge_filter, upsample_interpolate, find_roots
 # ---------------------------------------------------------------------------
 
 plt.rcParams['figure.constrained_layout.use'] = True
-plt.rcParams.update({'font.size': 14, 'figure.dpi': 1200})
+plt.rcParams.update({'font.size': 14, 'figure.dpi': 300})
 plt.rcParams['image.cmap'] = 'inferno'
 plt.rcParams['lines.linewidth'] = 2
 
