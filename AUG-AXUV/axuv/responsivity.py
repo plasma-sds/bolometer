@@ -79,7 +79,7 @@ def get_weighted_power(
     degraded: bool = False,
 ) -> np.ndarray:
     """
-    Integrates per-bin spectral power against the AXUV responsivity curve.
+    Integrates per-bin spectral power [W/nm] against the AXUV responsivity curve [A/(W nm)], resulting in current [A].
     Uses WAVELENGTH_BIN_EDGES to calculate the energy bin edges for the integration.
 
     Parameters
@@ -101,8 +101,8 @@ def get_weighted_power(
     for i in range(len(energy_bin_edges) - 1):
         averaging_range = np.linspace(energy_bin_edges[i], energy_bin_edges[i+1], 100)
         average_weight = float(np.average(responsivity(averaging_range)))
-        # for the integration we need to multiply by the bin width
-        bin_width = abs(energy_bin_edges[i+1] - energy_bin_edges[i])
+        # for the integration we need to multiply by the bin width in wavelength!
+        bin_width = abs(WAVELENGTH_BIN_EDGES[i+1] - WAVELENGTH_BIN_EDGES[i])
         weighted_power += diode_data[:, i] * average_weight * bin_width
 
     return weighted_power
