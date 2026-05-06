@@ -8,27 +8,12 @@ import matplotlib.pyplot as plt
 from axuv_measurement.config import (
     D16, DHT, DVC, DHC
 )
-from axuv_measurement.io import get_AXUV_signals
-
-latex = True
-
-if latex:
-    plt.rcParams.update({
-        "text.usetex": True,
-        "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
-        "font.family": "serif",  # tells matplotlib to use \rmfamily in the LaTeX doc
-    })
-else:
-    plt.rcParams.update({"text.usetex": False})
-
-plt.close('all')
-plt.rcParams.update({'font.size': 16,
-                     "figure.dpi" : 300,
-                     'figure.constrained_layout.use': True,
-                     'image.cmap': 'inferno'})
+from axuv_measurement.io import get_AXUV_signals, PROJECT_ROOT
+from axuv_measurement.plotting import set_plt_rcparams
 
 
-project_dir = "/tokp/work/lefer/AUG-AXUV"
+set_plt_rcparams()
+project_dir = PROJECT_ROOT
 
 def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8, save=False, remove_offset=True):
     """

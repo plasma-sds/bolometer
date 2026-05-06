@@ -2,10 +2,18 @@
 axuv/io.py  –  AUG shotfile I/O, data extraction and Gaussian signal smoothing
 """
 import numpy as np
-import aug_sfutils as sf
 from scipy.ndimage import gaussian_filter1d
+from pathlib import Path
+
+try:
+    import aug_sfutils as sf
+except ImportError:
+    print("aug_sfutils not found. Some functionality will be limited.")
 
 from axuv_measurement.config import SIGNAL_NAMES, SIG_KEY_LIST
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 def get_AXUV_signals(shot: int, camera: str, tbeg: float=2.0, tend: float=2.5, gaussian_sigma: int=10):
     """

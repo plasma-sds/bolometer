@@ -1,282 +1,45 @@
 """
-axuv/plotting.py  –  all 2-D / 1-D plot functions, radiation mapping, and
+axuv/plotting.py  –  most of the plotting functions, radiation mapping, and
                      LOS-sum helpers.
 """
-import os
 import h5py
 import bisect
-import datetime
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
-import aug_sfutils as sf
 from scipy.interpolate import griddata
+
+try:
+    import aug_sfutils as sf
+except ImportError:
+    print("aug_sfutils not found. Some functionality will be limited.")
 
 from .config import (
     ROOTFOLDER, VERT, D16, DVC, DHT, DHC,
     ELLIPSE,
     VERT_S5_RANGE, HORIZ_S5_RANGE, VERT_S16_RANGE, HORIZ_S16_RANGE,
 )
-from .io import read_data_base, calculate_indices
+
 from .geometry import (
     plot_qsurfaces, generate_isect_data3d,
     _load_isect_matrix, _filter_by_polygon,
     get_intersecting_LOSs,
 )
-from .processing import ridge_filter, upsample_interpolate, find_roots
+from .processing import ridge_filter, find_roots
 
 
-# ---------------------------------------------------------------------------
-# Global matplotlib defaults
-# ---------------------------------------------------------------------------
+def set_plt_rcparams():
+    """Sets the default matplotlib rcParams for LaTeX plotting in articles."""
+    plt.rcParams.update({
+        "text.usetex": True,
+        "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
+        "font.family": "serif",  # tells matplotlib to use \rmfamily in the LaTeX doc
+        "font.size": 16,
+        "figure.dpi": 300,
+        "figure.constrained_layout.use": True,
+        "image.cmap": 'inferno',
+        "lines.linewidth": 2,
+    })
 
-plt.rcParams['figure.constrained_layout.use'] = True
-plt.rcParams.update({'font.size': 14, 'figure.dpi': 300})
-plt.rcParams['image.cmap'] = 'inferno'
-plt.rcParams['lines.linewidth'] = 2
-
-
-# ---------------------------------------------------------------------------
-# 2-D pcolormesh plots (channel × time)
-# ---------------------------------------------------------------------------
-
-def plot_diag_non_mapped(shotno, diagname, start=2.3, end=2.4,
-                         norm='log', vmin=1e4, vmax=1e8,
-                         save=False, vtimes=None, current=False,
-                         signalrange=(0, 47), hline=None, file=None):
-    """Plot diagnostic data as a pcolormesh (time × channel number).
-
-    Optionally overlays the plasma current on a second axes below.
-
-    :param shotno:      AUG discharge number (int or str)
-    :param diagname:    custom diagnostic name (see axuv/config.py)
-    :param start:       start of the time window [s]
-    :param end:         end of the time window   [s]
-    :param norm:        pcolormesh normalisation: ``'log'`` or ``'linear'``
-    :param vmin:        lower colour-scale bound
-    :param vmax:        upper colour-scale bound
-    :param save:        if True, save the figure to disk
-    :param vtimes:      2-element tuple ``(diptime, peaktime)`` for vertical lines
-    :param current:     if True, add a plasma-current panel below the pcolormesh
-    :param signalrange: ``(first_channel_index, last_channel_index)``, inclusive
-    :param hline:       if not None, draw a horizontal line at this channel number
-    """
-    shotno = str(shotno)
-
-    signalnames, timesignal, indices, lenofsignals, f = read_data_base(
-        diagname, start=start, end=end, shotno=shotno
-    )
-    numofsignals = signalrange[1] - signalrange[0] + 1
-    tickrange    = np.arange(signalrange[0] + 1, signalrange[1] + 2, 4)
-    plotrange    = range(signalrange[0] + 1, signalrange[1] + 2)
-
-    data2d = np.zeros([numofsignals, lenofsignals])
-    for i in range(numofsignals):
-        data2d[i, :] = f['/'.join([shotno, diagname, signalnames[i + signalrange[0]]])][()][indices[0]:indices[1]]
-        print('{}/{} signals loaded'.format(i + 1, numofsignals), end='\r')
-
-    if current:
-        fig = plt.figure(figsize=[8, 6])
-        gs  = fig.add_gridspec(2, hspace=0, height_ratios=[1, 0.3])
-        ax1, ax2 = gs.subplots(sharex=True)
-        fig.suptitle('#' + shotno + ' ' + diagname.split('_')[0] + ' signals with plasma current')
-
-        im = ax1.pcolormesh(timesignal, plotrange, data2d,
-                            norm=norm, vmin=vmin, vmax=vmax, zorder=1)
-
-        # Plasma current – use separate variable names to avoid shadowing AXUV indices
-        fpc         = sf.SFREAD(int(shotno), 'FPC', experiment='AUGD')
-        Ip          = fpc.getobject("IpiFP", cal=True)
-        Ip_timefull = fpc.gettimebase("IpiFP")
-        Ip_indices  = calculate_indices(Ip_timefull, start, end)
-        Ip_time     = Ip_timefull[Ip_indices[0]:Ip_indices[1]]
-        Ip_data     = Ip[Ip_indices[0]:Ip_indices[1]] / 1000
-
-        ax2.plot(Ip_time, Ip_data)
-        ax2.set_ylabel(r'I$_p$ [kA]')
-
-        if hline is not None:
-            ax1.axhline(hline, zorder=20)
-        if vtimes is not None:
-            diptime, peaktime = vtimes
-            for axis in [ax1, ax2]:
-                axis.axvline(x=diptime,  color='green', linestyle='--',
-                             label='Dip: {:.6f} s'.format(diptime),  linewidth=1, zorder=2)
-                axis.axvline(x=peaktime, color='blue',  linestyle='--',
-                             label='Peak: {:.6f} s'.format(peaktime), linewidth=1, zorder=3)
-            ax2.legend(loc='lower left')
-
-        cbar = plt.colorbar(im, ax=ax1)
-        ax1.set_facecolor('black')
-        ax1.set_yticks(tickrange)
-        ax1.xaxis.grid(True, linestyle='--', zorder=5)
-        ax2.grid()
-        cbar.set_label('Diode signals [a. u.]')
-        ax2.set_xlabel('Time [s]')
-        ax1.set_ylabel('Channel number of camera')
-
-    else:
-        fig = plt.figure(figsize=[8, 4.5])
-        plt.pcolormesh(timesignal, plotrange, data2d,
-                       norm=norm, vmin=vmin, vmax=vmax, zorder=1)
-        cbar = plt.colorbar()
-        axes = plt.gca()
-        axes.set_facecolor('black')
-        if hline is not None:
-            axes.axhline(hline, zorder=20)
-        plt.yticks(tickrange)
-        axes.xaxis.grid(True, linestyle='--', zorder=5)
-        cbar.set_label('Diode signals [a. u.]')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Channel number of camera')
-        plt.title('#' + shotno + ' ' + diagname.split('_')[0])
-
-        if vtimes is not None:
-            plt.axvline(x=vtimes[0], color='green', linestyle='--',
-                        label=r'I$_p$ dip',  linewidth=1, zorder=2)
-            plt.axvline(x=vtimes[1], color='blue',  linestyle='--',
-                        label=r'I$_p$ peak', linewidth=1, zorder=3)
-            plt.legend(loc='upper left')
-
-    if save:
-        if not os.path.exists('plots/' + shotno):
-            os.mkdir('plots/' + shotno)
-        savename = '_'.join([diagname, str(start), str(end),
-                             str(signalrange[0]) + '-' + str(signalrange[1]),
-                             'Ip', str(bool(current))])
-        plt.savefig('plots/' + shotno + '/' + savename + '.png', dpi=150)
-        plt.close(fig)
-        print('Saved as ' + 'plots/' + shotno + '/' + savename + '.png')
-    else:
-        plt.show()
-
-    f.close()
-
-
-def plot_diff(shotno, diagname1, diagname2, start=2.3, end=2.4,
-              faultychannels='repair', linthresh=1e5,
-              save=False, vtimes=None, fname=None):
-    """Plot the channel-wise difference of two diagnostics as a pcolormesh.
-
-    Uses symmetric-log normalisation so that both positive and negative
-    differences are visible.  Optionally linearly interpolates dead channels
-    before subtracting.
-
-    :param shotno:        AUG discharge number (int or str)
-    :param diagname1:     custom diagnostic name (minuend)
-    :param diagname2:     custom diagnostic name (subtrahend)
-    :param start:         start of the time window [s]
-    :param end:           end of the time window   [s]
-    :param faultychannels:
-        * ``None``    – subtract all channels as-is
-        * ``list``    – channel indices to zero out before subtracting
-        * ``'repair'``– linearly interpolate dead channels before subtracting
-    :param linthresh:     linear threshold for the SymLogNorm
-    :param save:          if True, save to disk
-    :param vtimes:        2-element tuple ``(diptime, peaktime)``
-    :param fname:         override the default HDF5 filename
-
-    :returns: ``(tobesubtracted, timesignal)`` – the pair of aligned arrays
-              and the corresponding time array
-    """
-    shotno = str(shotno)
-    if not os.path.exists('plots/' + shotno):
-        os.mkdir('plots/' + shotno)
-
-    try:
-        filename = 'smoothed_data/' + shotno + '_sm.h5' if fname is None else fname
-        f = h5py.File(filename, 'r')
-    except Exception:
-        print('\033[31mNo cross-calibrated file\033[0m')
-        return 1
-
-    datasignals  = []
-    timesignals  = []
-
-    for diagname in [diagname1, diagname2]:
-        signalnames, timesignal, indices, lenofsignals, _ = read_data_base(
-            diagname, start=start, end=end, shotno=shotno, mode='h5file', h5file=f
-        )
-        timesignals.append(timesignal)
-        numofsignals_this = len(signalnames)
-        data2d = np.zeros([numofsignals_this, lenofsignals])
-
-        for i in range(numofsignals_this):
-            if isinstance(faultychannels, list) and (i in faultychannels):
-                data2d[i, :] = 0.0
-            else:
-                data2d[i, :] = f['/'.join([shotno, diagname, signalnames[i]])][()][indices[0]:indices[1]]
-            print('{}/{} signals loaded'.format(i + 1, numofsignals_this), end='\r')
-
-        datasignals.append(data2d)
-
-    f.close()
-
-    # Optionally repair dead channels by linear interpolation between neighbours
-    if faultychannels == 'repair':
-        templist = []
-        for data_r in datasignals:
-            n_ch = data_r.shape[0]
-            booleans      = ~np.all(data_r < 1e4, axis=1)
-            bad_ch_indices = np.where(~booleans)[0]
-            for i in bad_ch_indices:
-                if i - 1 < 0:
-                    data_r[i, :] = data_r[i + 2, :] if np.all(data_r[i + 1, :] < 1e4) else data_r[i + 1, :]
-                elif (i + 1) > (n_ch - 1) or np.all(data_r[i + 1, :] < 1e4):
-                    data_r[i, :] = data_r[i - 1, :]
-                else:
-                    data_r[i, :] = (data_r[i - 1, :] + data_r[i + 1, :]) / 2
-            templist.append(data_r)
-    else:
-        templist = datasignals
-
-    # Align time axes; upsample_interpolate returns the correct timesignal too
-    tobesubtracted, timesignal = upsample_interpolate(templist, timesignals)
-
-    datatoplot   = tobesubtracted[0] - tobesubtracted[1]
-    numofsignals = datatoplot.shape[0]
-    vmax_sym     = max(abs(datatoplot.min()), datatoplot.max())
-
-    fig = plt.figure(figsize=[8, 5])
-    plt.pcolormesh(
-        timesignal,
-        range(1, numofsignals + 1),
-        datatoplot,
-        norm=matplotlib.colors.SymLogNorm(linthresh=linthresh, vmin=-vmax_sym, vmax=vmax_sym),
-        cmap=plt.colormaps['RdBu'],
-    )
-    cbar = plt.colorbar()
-    axes = plt.gca()
-    plt.yticks(np.arange(2, numofsignals + 1, 2))
-    axes.xaxis.grid(True, color='black', linestyle='--', zorder=5)
-    plt.xlabel('Time [s]')
-    plt.ylabel('Channel number of camera')
-
-    diagshort1 = diagname1.split('_')[0]
-    diagshort2 = diagname2.split('_')[0]
-    cbar.set_label('<- ' + diagshort2 + ' higher signal    |    ' + diagshort1 + ' higher signal ->')
-    plt.title('#' + shotno + ' ' + diagshort2 + ' subtracted from ' + diagshort1)
-
-    if vtimes is not None:
-        plt.axvline(x=vtimes[0], color='green', linestyle='--',
-                    label=r'I$_p$ dip',  linewidth=1, zorder=2)
-        plt.axvline(x=vtimes[1], color='blue',  linestyle='--',
-                    label=r'I$_p$ peak', linewidth=1, zorder=3)
-        plt.legend(loc='upper left')
-
-    if save:
-        savename = '_'.join([diagshort1, 'minus', diagshort2,
-                             str(start), str(end), str(numofsignals)])
-        if os.path.exists('plots/' + shotno + '/' + savename + '.png'):
-            now = datetime.datetime.now()
-            savename += now.strftime('_%Y-%m-%d_%Hh-%Mm-%Ss')
-        plt.savefig('plots/' + shotno + '/' + savename + '.png', dpi=150)
-        plt.close(fig)
-        print('Saved as ' + 'plots/' + shotno + '/' + savename + '.png')
-    else:
-        plt.show()
-
-    return tobesubtracted, timesignal
 
 
 # ---------------------------------------------------------------------------
