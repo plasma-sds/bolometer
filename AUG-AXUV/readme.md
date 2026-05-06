@@ -90,21 +90,7 @@ pip install -r requirements.txt   # installs Raysect, Cherab, h5py, …
 
 ### Making the packages importable
 
-Neither package is installed via pip by default.  Add the repo root to your
-Python path — either in your shell:
-
-```bash
-export PYTHONPATH="/path/to/AUG-AXUV:$PYTHONPATH"
-```
-
-or at the top of a script / notebook:
-
-```python
-import sys
-sys.path.insert(0, "/path/to/AUG-AXUV")
-```
-
-Or alternatively install with pip in editable mode from the main project directory:
+Neither package is installed via pip by default. Install with pip in editable mode from the main project directory:
 ```bash
 pip install -e .
 ```
