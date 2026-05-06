@@ -1,5 +1,5 @@
 # Excluded directories
-axuv/data/*/
+axuv/data/
 aug/
 output/
 plots/
