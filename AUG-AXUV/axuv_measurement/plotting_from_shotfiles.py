@@ -2,14 +2,13 @@
 IPython Notebook for plotting AXUV signals from shotfiles
 """
 # %%
-import aug_sfutils as sf
 import numpy as np
 import matplotlib.pyplot as plt
 
-from scipy.ndimage import gaussian_filter1d
 from axuv_measurement.config import (
-    SIGNAL_NAMES, SIG_KEY_LIST, D16, DHT, DVC, DHC
+    D16, DHT, DVC, DHC
 )
+from axuv_measurement.io import get_AXUV_signals
 
 latex = True
 
@@ -23,15 +22,7 @@ else:
     plt.rcParams.update({"text.usetex": False})
 
 plt.close('all')
-plt.rcParams.update({#"xtick.major.size" : 0,
-                     #"xtick.minor.visible" : False,
-                     #"xtick.top" : False,
-                     #"ytick.direction" : "in",
-                     #"ytick.labelsize" : "medium",
-                     #"ytick.major.size" : 0,
-                     #"ytick.minor.visible" : False,
-                     #"ytick.right" : False,
-                     'font.size': 16,
+plt.rcParams.update({'font.size': 16,
                      "figure.dpi" : 300,
                      'figure.constrained_layout.use': True,
                      'image.cmap': 'inferno'})
@@ -87,7 +78,7 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
         title_suffix = title_suffix.replace("vert", "vertical")
     elif "horiz" in title_suffix:
         title_suffix = title_suffix.replace("horiz", "horizontal")
-    
+
     title = str(shotno) + " " + title_suffix
     plt.title(title)
     if save:

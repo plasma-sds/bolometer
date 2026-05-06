@@ -2,12 +2,11 @@
 axuv/processing.py  –  signal downsampling, interpolation, repair, and the
                         Sato ridge-filter pipeline.
 """
-import bisect
 import numpy as np
 import skimage.filters
 
-from .config import NEWAXUV, DHT
-from .io import read_data_base
+from axuv_measurement.config import NEWAXUV, DHT
+from axuv_measurement.io import get_AXUV_signals
 
 
 # ---------------------------------------------------------------------------
@@ -75,8 +74,7 @@ def upsample_interpolate(templist: list, timesignals: list):
 # ---------------------------------------------------------------------------
 
 def downsample(shotno, diagname: str,
-               start: float = 2.31, end: float = 2.32,
-               signalrange: tuple = (0, 47)):
+               start: float = 2.31, end: float = 2.32):
     """Downsample time signal and channel data to a uniform 1×10⁻⁵ s resolution.
 
     The downsampling factor differs by diagnostic so that all cameras end up
@@ -94,20 +92,13 @@ def downsample(shotno, diagname: str,
     factor = 10 if any(x == diagname for x in NEWAXUV) else 4
 
     shotno = str(shotno)
-    signalnames, timesignal, indices, _, f = read_data_base(
-        diagname, start=start, end=end, shotno=shotno
-    )
+    data, timesignal = get_AXUV_signals(int(shotno), diagname, tbeg=start, tend=end)
 
-    newend = timesignal.shape[0] - (timesignal.shape[0] % factor)
-    timesignal = timesignal[:newend]
-    downsampled_time = timesignal.reshape(-1, factor).mean(axis=1)
-
-    numofsignals = signalrange[1] - signalrange[0] + 1
-    downsampled_data = np.zeros((downsampled_time.shape[0], numofsignals))
-
-    for i, channel in enumerate(range(signalrange[0], signalrange[1])):
-        tempdata = f['/'.join([shotno, diagname, signalnames[channel]])][()][indices[0]:indices[1]]
-        downsampled_data[:, i] = tempdata[:newend].reshape(-1, factor).mean(axis=1)
+    # Downsample data and time signal by `factor`
+    newend = timesignal.shape[0] - (timesignal.shape[0] % factor)  # Round down to nearest multiple of `factor`
+    timesignal = timesignal[:newend]  # Truncate to nearest multiple of `factor`
+    downsampled_time = timesignal.reshape(-1, factor).mean(axis=1)  # Average `factor` time points together
+    downsampled_data = data[:newend].reshape(-1, factor).mean(axis=1)  # Average `factor` data points together
 
     return downsampled_data, downsampled_time
 
@@ -155,7 +146,7 @@ def repair_2d_data(data: np.ndarray, add_indices=None) -> np.ndarray:
 def ridge_filter(shotno, diagname: str,
                  start: float = 2.31, end: float = 2.32,
                  signalrange: tuple = (0, 47),
-                 sigmas: list = None,
+                 sigmas: list = [1, 2],
                  normalize: bool = True,
                  plot: bool = False,
                  repair: bool = True,
@@ -182,11 +173,9 @@ def ridge_filter(shotno, diagname: str,
                         *plot* is True
     :returns:           ``(data, downsampled_time, raw_data)``
     """
-    if sigmas is None:
-        sigmas = [1, 2]
 
     downsampled_data, downsampled_time = downsample(
-        shotno, diagname, start=start, end=end, signalrange=signalrange
+        shotno, diagname, start=start, end=end
     )
 
     # Detect low-signal (dead) channels
