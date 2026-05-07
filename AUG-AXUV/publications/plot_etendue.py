@@ -84,7 +84,7 @@ ax.plot(diode_indices, raytraced_etendue, label="Raytraced")
 ax.errorbar(diode_indices, raytraced_etendue, yerr=raytraced_error, fmt='none', ecolor='gray', capsize=3)
 ax.plot(diode_indices, aug_etendue, label="AUG analytical")
 ax.set_xlabel("Diode index")
-ax.set_ylabel(r"Etendue/4$\pi$ [m$^2$]")
+ax.set_ylabel(r"Etendue [m$^2$]")
 
 quarter_labels = ["DVC", "DHC", "D16", "DHT"]
 quarter_centers = [0.125, 0.375, 0.625, 0.875]

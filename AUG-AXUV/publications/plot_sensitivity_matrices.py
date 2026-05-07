@@ -55,7 +55,7 @@ except Exception as e:
 
 # Fix the vmin and vmax values for one sensitivity dataset, so that the colorbars are indentical on all figures
 vmax = sensitivity_matrix.max()
-vmin = 1e-4 * vmax
+vmin = 1e-6 * vmax
 
 for wavelength_bin in [0, 50, 100, 150, 200]:
 
