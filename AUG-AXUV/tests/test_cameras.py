@@ -88,7 +88,7 @@ def test_get_sensor_data_return_lengths():
     """angles, distances, signalnames must each have n_channels entries."""
     n = 16
     df = _make_mock_df(n_channels=n)
-    angles, distances, signalnames, fwd, origin, up = get_sensor_data("DHT", df)
+    angles, distances, signalnames, fwd, origin, up, slit_area = get_sensor_data("DHT", df)
 
     assert len(angles)      == n
     assert len(distances)   == n
@@ -98,7 +98,7 @@ def test_get_sensor_data_return_lengths():
 def test_get_sensor_data_forward_vector_is_unit():
     """The returned forward vector must be a unit vector."""
     df = _make_mock_df(n_channels=48)
-    _, _, _, fwd, _, _ = get_sensor_data("DHT", df)
+    _, _, _, fwd, _, _, _ = get_sensor_data("DHT", df)
     magnitude = math.sqrt(fwd.x**2 + fwd.y**2 + fwd.z**2)  # type: ignore[attr-defined]
     assert magnitude == pytest.approx(1.0, abs=1e-9)
 
@@ -106,7 +106,7 @@ def test_get_sensor_data_forward_vector_is_unit():
 def test_get_sensor_data_up_vector_is_unit():
     """The returned up vector must be a unit vector."""
     df = _make_mock_df(n_channels=48)
-    _, _, _, _, _, up = get_sensor_data("DHT", df)
+    _, _, _, _, _, up, _ = get_sensor_data("DHT", df)
     magnitude = math.sqrt(up.x**2 + up.y**2 + up.z**2)  # type: ignore[attr-defined]
     assert magnitude == pytest.approx(1.0, abs=1e-9)
 
@@ -120,12 +120,12 @@ def test_get_sensor_data_channel_idx_slices_correctly():
     df2["Cam"] = "DVC"
     full_df = pd.concat([df, df2], ignore_index=True)
 
-    angles, distances, _, _, _, _ = get_sensor_data("DHT", full_df, channelIDX=16)
+    angles, distances, _, _, _, _, _ = get_sensor_data("DHT", full_df, channelIDX=16)
     assert len(angles) == 16
     assert len(distances) == 16
 
 
 def test_get_sensor_data_signalnames_are_strings():
     df = _make_mock_df()
-    _, _, signalnames, _, _, _ = get_sensor_data("DHT", df)
+    _, _, signalnames, _, _, _, _ = get_sensor_data("DHT", df)
     assert all(isinstance(s, str) for s in signalnames)

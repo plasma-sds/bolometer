@@ -14,7 +14,7 @@ BOX_DEPTH = 0.06  # sensor-to-slit depth [m]
 BOX_WIDTH_X = 0.20  # for horizontal (box-shaped) cameras
 FRUSTUM_WIDTH_X = 0.08  # for vertical (frustum-shaped) cameras
 BOX_HEIGHT_Y = 0.006  # toroidal extent of the box
-SLIT_WIDTH_X = 0.0008  # poloidal slit width
+# SLIT_WIDTH_X = 0.0008  # poloidal slit width
 SLIT_HEIGHT_Y_HORIZ = 0.003  # toroidal slit height — horizontal cameras (DHT, DHC)
 SLIT_HEIGHT_Y_VERT = 0.002  # toroidal slit height — vertical cameras (D16, DVC, D13, …)
 SENSOR_X_SIZE = 0.002  # poloidal sensor size
@@ -60,6 +60,7 @@ def get_sensor_data(sensor, axuv_df, channelIDX=None):
     """
     Returns angles, distances, signal names, and the camera's forward/up
     vectors and origin in Cartesian coordinates.
+    Also returns the f_Blende value from axuv_df, which is the area of the slit
 
     :param sensor:     camera name string, e.g. "DHT", "D16", "DVC"
     :param axuv_df:    the loaded AXUV geometry DataFrame
@@ -76,6 +77,7 @@ def get_sensor_data(sensor, axuv_df, channelIDX=None):
     angles      = df['alpha'].to_numpy()
     distances   = df['d(Folie-Blende)'].to_numpy()
     signalnames = df['RAW'].to_list()
+    slit_area   = df['f_Blende'].to_numpy()
 
     n = len(df)
     df_mid1 = df.iloc[n // 2 - 1]
@@ -105,11 +107,12 @@ def get_sensor_data(sensor, axuv_df, channelIDX=None):
         Vector3D(*bisector),
         camera_origin,
         Vector3D(*up_v),
+        slit_area,
     )
 
 
 def make_axuv_camera(
-    sensor_angles, sensor_distances, signalnames, slit_id, detector_id_start=0
+    sensor_angles, sensor_distances, signalnames, slit_id, slit_area, detector_id_start=0
 ):
     """
     Creates and returns an AXUV camera (box, slit, diodes) as a BolometerCamera object
@@ -119,6 +122,8 @@ def make_axuv_camera(
     :param signalnames: raw signal names e.g. S1L0A01 (RAW)
     :param slit_id: In some cases one camera has actually three different boxes and slits
       and in that case three different BolometerCamera objects need to be created
+    :param slit_area: area of the slit in square meters, from the AXUV datafile (f_Blende)
+      will be divided by slit_y to get the slit_x distance
     :param detector_id_start: Internal identifier of the diode number, when there is only
       one box in a camera, the diodes are indexed 0-47, and to keep with this notation
       when there are three boxes in a camera, the indexing goes 0-15, 16-31, 32-47
@@ -140,7 +145,7 @@ def make_axuv_camera(
     else:
         slit_y = SLIT_HEIGHT_Y_VERT
 
-    slit_x = SLIT_WIDTH_X
+    slit_x = slit_area / slit_y
     material_width = 1e-6
     top_x = slit_x / 2 + material_width  # let's not have any edge around the slit
     top_y = slit_y / 2 + material_width
@@ -241,8 +246,8 @@ def make_axuv_camera(
     camera_box = Subtract(camera_box_outer, camera_box_inner)
 
     aperture = Box(
-        lower=Point3D(-SLIT_WIDTH_X / 2, -slit_y / 2, -1e-5),
-        upper=Point3D(SLIT_WIDTH_X / 2, slit_y / 2, 1e-5),
+        lower=Point3D(-slit_x / 2, -slit_y / 2, -1e-5),
+        upper=Point3D(slit_x / 2, slit_y / 2, 1e-5),
     )
     camera_box = Subtract(camera_box, aperture)
 
@@ -257,14 +262,14 @@ def make_axuv_camera(
         slit_id=slit_id,
         centre_point=ORIGIN,
         basis_x=XAXIS,
-        dx=SLIT_WIDTH_X,
+        dx=slit_x,
         basis_y=YAXIS,
         dy=slit_y,
         parent=diode_camera,
     )
 
     print(
-        f"  slit created for {diode_camera.name}: {slit_id}, centre_point: {ORIGIN}, basis_x: {XAXIS}, dx: {SLIT_WIDTH_X}, basis_y: {YAXIS}, dy: {slit_y}"
+        f"  slit created for {diode_camera.name}: {slit_id}, centre_point: {ORIGIN}, basis_x: {XAXIS}, dx: {slit_x:.2e}, basis_y: {YAXIS}, dy: {slit_y:.2e}"
     )
 
     for j, angle in enumerate(sensor_angles):
@@ -312,7 +317,7 @@ def make_axuv_camera(
 
 
 def make_axuv_camera_box(
-    sensor_angles, sensor_distances, signalnames, slit_id, detector_id_start=0
+    sensor_angles, sensor_distances, signalnames, slit_id, slit_area, detector_id_start=0
 ):
     """
     Creates and returns an AXUV camera (box, slit, diodes) as a BolometerCamera object
@@ -322,6 +327,8 @@ def make_axuv_camera_box(
     :param signalnames: raw signal names e.g. S1L0A01 (RAW)
     :param slit_id: In some cases one camera has actually three different boxes and slits
       and in that case three different BolometerCamera objects need to be created
+    :param slit_area: area of the slit (m^2), from the AXUV datafile (f_Blende)
+      will be divided by slit_y to get the slit_x distance
     :param detector_id_start: Internal identifier of the diode number, when there is only
       one box in a camera, the diodes are indexed 0-47, and to keep with this notation
       when there are three boxes in a camera, the indexing goes 0-15, 16-31, 32-47
@@ -367,9 +374,11 @@ def make_axuv_camera_box(
     else:
         slit_height_y = SLIT_HEIGHT_Y_VERT
 
+    slit_x = slit_area / slit_height_y
+
     aperture = Box(
-        lower=Point3D(-SLIT_WIDTH_X / 2, -slit_height_y / 2, -1e-4),
-        upper=Point3D(SLIT_WIDTH_X / 2, slit_height_y / 2, 1e-4),
+        lower=Point3D(-slit_x / 2, -slit_height_y / 2, -1e-4),
+        upper=Point3D(slit_x / 2, slit_height_y / 2, 1e-4),
     )
     camera_box = Subtract(camera_box, aperture)
 
@@ -384,13 +393,13 @@ def make_axuv_camera_box(
         slit_id=slit_id,
         centre_point=ORIGIN,
         basis_x=XAXIS,
-        dx=SLIT_WIDTH_X,
+        dx=slit_x,
         basis_y=YAXIS,
         dy=slit_height_y,
         parent=diode_camera,
     )
     print(
-        f"  slit: {slit_id}, centre_point: {ORIGIN}, basis_x: {XAXIS}, dx: {SLIT_WIDTH_X}, basis_y: {YAXIS}, dy: {slit_height_y} created for {diode_camera.name}"
+        f"  slit: {slit_id}, centre_point: {ORIGIN}, basis_x: {XAXIS}, dx: {slit_x:.2e}, basis_y: {YAXIS}, dy: {slit_height_y:.2e} created for {diode_camera.name}"
     )
 
     for j, angle in enumerate(sensor_angles):
@@ -455,10 +464,10 @@ def create_observable_world(sectors, axuv_df, cad_mesh=False, show_plots=False, 
         print(f"  sector: {sector}, box: {config['box']}, frustum: {config['frustum']}")
 
         for cam_name in config["box"]:
-            angles, distances, names, fwd, origin, up = get_sensor_data(
+            angles, distances, names, fwd, origin, up, slit_area = get_sensor_data(
                 cam_name, axuv_df
             )
-            cam = make_axuv_camera_box(angles, distances, names, cam_name)
+            cam = make_axuv_camera_box(angles, distances, names, cam_name, slit_area)
             cam.transform = translate(*origin) * rotate_basis(forward=fwd, up=up)
             cam.parent = world
             cam.name = cam_name
@@ -467,12 +476,12 @@ def create_observable_world(sectors, axuv_df, cad_mesh=False, show_plots=False, 
 
         for cam_name in config["frustum"]:
             for i in range(3):
-                angles, distances, names, fwd, origin, up = get_sensor_data(
+                angles, distances, names, fwd, origin, up, slit_area = get_sensor_data(
                     cam_name, axuv_df, channelIDX=i * 16
                 )
                 c_name = f"{cam_name}_{i + 1}"
                 cam = make_axuv_camera(
-                    angles, distances, names, c_name, detector_id_start=i * 16
+                    angles, distances, names, c_name, slit_area, detector_id_start=i * 16
                 )
                 cam.transform = translate(*origin) * rotate_basis(forward=fwd, up=up)
                 cam.parent = world
