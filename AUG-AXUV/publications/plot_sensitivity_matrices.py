@@ -1,5 +1,4 @@
 # %%
-from IPython.testing.decorators import f
 import h5py
 import pickle
 import matplotlib.pyplot as plt
@@ -12,7 +11,7 @@ from axuv.cameras import WAVELENGTH_BIN_EDGES
 
 
 project_dir = PROJECT_ROOT
-data_dir = project_dir / "axuv" / "data"
+data_dir = project_dir  / "axuv" / "data"
 
 wavelength_centers = (WAVELENGTH_BIN_EDGES[:-1] + WAVELENGTH_BIN_EDGES[1:]) / 2
 
@@ -58,32 +57,20 @@ except Exception as e:
 vmax = sensitivity_matrix.max()
 vmin = 1e-4 * vmax
 
-wavelength_bin = 0
+for wavelength_bin in [0, 50, 100, 150, 200]:
 
-fig, ax = plt.subplots(figsize=figsize, dpi=150)
-ax.set_facecolor("black")
-ax, im = plot_sensitivity_map(
-    ax, grid_centres, voxel_map, sensitivity_matrix[20, :, wavelength_bin], vmin=vmin, vmax=vmax
-)
-plot_PFCs(ax, gc_d_lines)
-plt.colorbar(im, ax=ax, label=r"Sensitivity [m$^2$ sr]")
-ax.set_xlabel("R [m]")
-ax.set_ylabel("Z [m]")
-ax.set_title(f"{wavelength_centers[wavelength_bin]:.2f} nm")
-plt.show()
-wavelength_bin = -1
+    fig, ax = plt.subplots(figsize=figsize, dpi=100)
+    ax.set_facecolor("black")
+    ax, im = plot_sensitivity_map(
+        ax, grid_centres, voxel_map, sensitivity_matrix[20, :, wavelength_bin], vmin=vmin, vmax=vmax
+    )
+    plot_PFCs(ax, gc_d_lines)
+    plt.colorbar(im, ax=ax, label=r"Sensitivity [m$^2$ sr]")
+    ax.set_xlabel("R [m]")
+    ax.set_ylabel("Z [m]")
+    ax.set_title(f"{wavelength_centers[wavelength_bin]:.2f} nm")
+    plt.show()
 
-fig, ax = plt.subplots(figsize=figsize, dpi=150)
-ax.set_facecolor("black")
-ax, im = plot_sensitivity_map(
-    ax, grid_centres, voxel_map, sensitivity_matrix[20, :, wavelength_bin], vmin=vmin, vmax=vmax
-)
-plot_PFCs(ax, gc_d_lines)
-plt.colorbar(im, ax=ax, label=r"Sensitivity [m$^2$ sr]")
-ax.set_xlabel("R [m]")
-ax.set_ylabel("Z [m]")
-ax.set_title(f"{wavelength_centers[wavelength_bin]:.2f} nm")
-plt.show()
 
 # %% Load and plot raytransfer data
 for raytransfer_path in RAYTRANSFER_PATHS:
@@ -106,7 +93,7 @@ for raytransfer_path in RAYTRANSFER_PATHS:
         output_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         print(f"Could not load sensitivity matrix from {raytransfer_path}: {e}")
-    
+
     # Fix the vmin and vmax values for one sensitivity dataset, so that the colorbars are indentical on all figures
     vmax = sensitivity_matrix.max()
     vmin = 1e-4 * vmax
@@ -134,13 +121,13 @@ for raytransfer_path in RAYTRANSFER_PATHS:
             fig.savefig(bin_output_dir / f"diode_{i}.png", dpi=300)
             plt.close(fig)
             print(f"Diode {i}, bin {j} done", end="\r")
-            
+
         print(f"Diode {i} done", end="\r")
 
     # Create subfolder for spectral plotting
     spectral_output_dir = output_dir / "spectral"
     spectral_output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Plot all bins for the chosen diode
     for j in range(sensitivity_matrix.shape[2]):
         fig, ax = plt.subplots(figsize=figsize)
@@ -157,4 +144,3 @@ for raytransfer_path in RAYTRANSFER_PATHS:
         plt.close(fig)
         print(f"Diode {diode_to_plot}, bin {j} done", end="\r")
     print("\n")
-
