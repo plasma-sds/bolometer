@@ -1,3 +1,14 @@
+## This was used to run the 1D (1 LOS) synthetic diagnostics
+
+Forced locale to `C` so that the dots survive in the numbers.
+
+```bash
+for time in $(LC_ALL=C seq -f "%.4f" 2.3000 0.0005 2.3100); do
+    echo "=== Observing at t=${time} s ==="
+    nice -n 5 taskset -c 20-29 python sightline_DREAMoutput_Ne_SPI.py "$time" --pickle
+done
+```
+
 ## These options were run for the sensitivity calculation
 
 - All with the default resolution of NR=60 and NZ=110. 
