@@ -60,7 +60,8 @@ def get_sensor_data(sensor, axuv_df, channelIDX=None):
     """
     Returns angles, distances, signal names, and the camera's forward/up
     vectors and origin in Cartesian coordinates.
-    Also returns the f_Blende value from axuv_df, which is the area of the slit
+    Also returns the f_Blende values from axuv_df, which are the areas of the slits for all the diodes.
+    These will need to be converted to one float value by averaging for example.
 
     :param sensor:     camera name string, e.g. "DHT", "D16", "DVC"
     :param axuv_df:    the loaded AXUV geometry DataFrame
@@ -77,7 +78,7 @@ def get_sensor_data(sensor, axuv_df, channelIDX=None):
     angles      = df['alpha'].to_numpy()
     distances   = df['d(Folie-Blende)'].to_numpy()
     signalnames = df['RAW'].to_list()
-    slit_area   = df['f_Blende'].to_numpy()
+    slit_areas   = df['f_Blende'].to_numpy()
 
     n = len(df)
     df_mid1 = df.iloc[n // 2 - 1]
@@ -107,7 +108,7 @@ def get_sensor_data(sensor, axuv_df, channelIDX=None):
         Vector3D(*bisector),
         camera_origin,
         Vector3D(*up_v),
-        slit_area,
+        slit_areas,
     )
 
 
@@ -464,9 +465,12 @@ def create_observable_world(sectors, axuv_df, cad_mesh=False, show_plots=False, 
         print(f"  sector: {sector}, box: {config['box']}, frustum: {config['frustum']}")
 
         for cam_name in config["box"]:
-            angles, distances, names, fwd, origin, up, slit_area = get_sensor_data(
+            angles, distances, names, fwd, origin, up, slit_areas = get_sensor_data(
                 cam_name, axuv_df
             )
+            print(f"Number of slit_area values to average: {slit_areas.shape[0]}")
+            # average slit_areas to get slit_area
+            slit_area = slit_areas.mean(axis=0)
             cam = make_axuv_camera_box(angles, distances, names, cam_name, slit_area)
             cam.transform = translate(*origin) * rotate_basis(forward=fwd, up=up)
             cam.parent = world
@@ -476,10 +480,12 @@ def create_observable_world(sectors, axuv_df, cad_mesh=False, show_plots=False, 
 
         for cam_name in config["frustum"]:
             for i in range(3):
-                angles, distances, names, fwd, origin, up, slit_area = get_sensor_data(
+                angles, distances, names, fwd, origin, up, slit_areas = get_sensor_data(
                     cam_name, axuv_df, channelIDX=i * 16
                 )
                 c_name = f"{cam_name}_{i + 1}"
+                print(f"Number of slit_area values to average: {slit_areas.shape[0]}")
+                slit_area = slit_areas.mean(axis=0)
                 cam = make_axuv_camera(
                     angles, distances, names, c_name, slit_area, detector_id_start=i * 16
                 )
