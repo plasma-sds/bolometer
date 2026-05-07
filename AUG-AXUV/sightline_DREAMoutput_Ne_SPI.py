@@ -1,7 +1,6 @@
-#!/bin/python3
-
+import os
 import sys
-import json
+import csv
 import pickle
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,16 +19,19 @@ from raysect.optical.observer import SightLine, SpectralPowerPipeline0D, Spectra
 from raysect.optical.material.emitter.inhomogeneous import NumericalIntegrator
 
 from cherab.core import Species, Maxwellian, Plasma, Line
-from cherab.core.atomic.elements import deuterium, neon
+from cherab.core.atomic import deuterium, neon
 from cherab.core.model import ExcitationLine, GaussianLine, RecombinationLine, Bremsstrahlung
-from cherab.core.math import Constant3D, ConstantVector3D, sample3d, Function3D
 from cherab.openadas import OpenADAS
-from cherab.tools.plasmas import GaussianVolume
-from cherab.tools.equilibrium import EFITEquilibrium
+from cherab.openadas.repository import populate
+
+from axuv.io import DATADIR, PROJECT_ROOT
 
 
 # change matplotlib renderer so that when calling observe() on observers the script does not get interrupted
 matplotlib.use('Agg')
+
+# Download the Ne data from OPENADAS if create.py has been modified correctly
+# populate()
 
 # Convenient constants
 XAXIS = Vector3D(1, 0, 0)
@@ -38,7 +40,7 @@ ZAXIS = Vector3D(0, 0, 1)
 ORIGIN = Point3D(0, 0, 0)
 
 # read time dependent densities from DREAM output file
-with h5py.File("dream_output.h5") as do:
+with h5py.File(DATADIR + "dream_output.h5") as do:
     do_ions = do["eqsys/n_i"][()]
     do_n_cold = do["eqsys/n_cold"][()]
     do_n_hot = do["eqsys/n_hot"][()]
@@ -84,7 +86,7 @@ class CustomFunction:
                 return 0.
         else:
             return 0.
-        
+
 world = World()
 
 # SightLine geometry with transform: will look in the direction of XAXIS, with "up" being the ZAXIS
@@ -102,7 +104,7 @@ los.pixel_samples = 3e4
 ###################################################
 # Produce a radiating, cylindrical plasma with Neon
 ###################################################
-
+print("Producing the cylindrical plasma...")
 # atomic data source
 adas = OpenADAS(permit_extrapolation=True)
 
@@ -183,25 +185,25 @@ hydrogen_I_396 = Line(deuterium, 0, (7, 2))
 
 ########################################################################
 # Get Neon lines from Photon Emissivity Coefficients datafiles
-# This "ne" folder would normally be located at ~/.cherab/openadas/repository/pec/exctitaion/ne 
+# This "ne" folder would normally be located at ~/.cherab/openadas/repository/pec/exctitaion/ne
 # or at .../pec/recombination/ne The JSON files are the same in both directories
 ########################################################################
 neon_lines = []
-for i in range(10):
-    with open("ne/" + str(i) + ".json") as f:
-        data = json.load(f)
-        keys = data.keys()
-        for key in keys:
-            splitkey = key.split(" -> ")
-            if " " not in splitkey[0]:
-                part1 = int(splitkey[0])
-                part2 = int(splitkey[1])
-            else:
-                part1 = splitkey[0]
-                part2 = splitkey[1]
+with open(DATADIR + "ne.csv") as f:
+    reader = csv.reader(f)
+    for row in reader:
+        i, part1, part2 = row
 
-            neon_lines.append(ExcitationLine(Line(neon, i, (part1, part2)), lineshape=GaussianLine))
-            neon_lines.append(RecombinationLine(Line(neon, i, (part1, part2)), lineshape=GaussianLine))
+        neon_lines.append(
+            ExcitationLine(
+                Line(neon, int(i), (part1, part2)), lineshape=GaussianLine
+            )
+        )
+        neon_lines.append(
+            RecombinationLine(
+                Line(neon, int(i), (part1, part2)), lineshape=GaussianLine
+            )
+        )
 
 # add all lines to the plasma
 plasma.models = [
@@ -216,19 +218,21 @@ plasma.models = [
 ########################################################################
 # Observe the radiation spectrum along the LOS
 ########################################################################
-
+print("Observing the radiation spectrum along the LOS...")
 los.observe()
 
 photon_energies = 1239.8 / sppipeline.wavelengths
-datatosave = np.array([sppipeline.samples.mean, 
-                       sppipeline.samples.variance, 
+datatosave = np.array([sppipeline.samples.mean,
+                       sppipeline.samples.variance,
                        sppipeline.wavelengths,
                        photon_energies])
-np.save("saved_data_new/highres_{:.4f}s.npy".format(do_time[ti]), datatosave)
+folder_name = PROJECT_ROOT / "output" / "0D_data"
+if not os.path.exists(folder_name):
+    os.makedirs(folder_name)
+np.save(folder_name / "highres_{:.4f}s.npy".format(do_time[ti]), datatosave)
 
 # # Optionally dump the spectrum objects with pickle
 # spectrum = sradpipeline.to_spectrum()
-# filehandler = open("saved_data_new/highres_{:.4f}s_spectrum.obj".format(do_time[ti]), 'wb') 
+# filehandler = open("saved_data_new/highres_{:.4f}s_spectrum.obj".format(do_time[ti]), 'wb')
 # pickle.dump(spectrum, filehandler)
 print("Saved array and dumped object")
-
