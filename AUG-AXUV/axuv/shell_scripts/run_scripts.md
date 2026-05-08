@@ -5,7 +5,7 @@ Forced locale to `C` so that the dots survive in the numbers.
 ```bash
 for time in $(LC_ALL=C seq -f "%.4f" 2.3000 0.0005 2.3100); do
     echo "=== Observing at t=${time} s ==="
-    nice -n 5 taskset -c 20-29 python sightline_DREAMoutput_Ne_SPI.py "$time" --pickle
+    python sightline_DREAMoutput_Ne_SPI.py "$time" --pickle
 done
 ```
 
@@ -17,30 +17,35 @@ done
 
 ### S5 reflections
 ```bash
-nice -n 5 taskset -c 0-9 python axuv/raytransfer_sensitivity.py --sectors S5 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
+python axuv/raytransfer_sensitivity.py --sectors S5 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
 ```
 
 ### S16 reflections
 ```bash
-nice -n 5 taskset -c 10-19 python axuv/raytransfer_sensitivity.py --sectors S16 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
+python axuv/raytransfer_sensitivity.py --sectors S16 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
 ```
 
 ### S5 no reflections
 ```bash
-nice -n 5 taskset -c 20-29 python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
+python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
 ```
 
 ### S16 no reflections
 ```bash
-nice -n 5 taskset -c 30-39 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
+python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
 ```
 
 ### S5 etendue
 ```bash
-nice -n 5 taskset -c 0-9 python axuv/raytransfer_sensitivity.py --sectors S5 --observe-processes 10 --etendue-mode
+python axuv/raytransfer_sensitivity.py --sectors S5 --observe-processes 10 --etendue-mode
 ```
 
 ### S16 etendue
 ```bash
-nice -n 5 taskset -c 10-19 python axuv/raytransfer_sensitivity.py --sectors S16 --observe-processes 10 --etendue-mode
+python axuv/raytransfer_sensitivity.py --sectors S16 --observe-processes 10 --etendue-mode
+```
+
+## To verify the `RayTransferPipeline` against the `PowerPipeline` for sector 16
+```bash
+python publications/verify_uniform_emitter.py --sectors S16 --processes 10
 ```
