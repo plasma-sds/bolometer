@@ -14,7 +14,7 @@ comparison is an internal consistency check of the sensitivity matrix.  Both G_o
 G_matrix will be smaller than an etendue-based prediction because the diodes' view cones
 extend to the absorbing wall at R = 2.5 m — this is expected and not an error.
 
-Runtime note: reduce STEP to 0.01 m for ~2× accuracy at ~25× cost.
+Runtime note: increase PIXEL_SAMPLES for higher accuracy at proportional cost.
 """
 
 import argparse
@@ -25,10 +25,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 from raysect.core import MulticoreEngine
-from raysect.optical.material.emitter.inhomogeneous import (
-    InhomogeneousVolumeEmitter,
-    NumericalIntegrator,
-)
+from raysect.optical.material.emitter.homogeneous import HomogeneousVolumeEmitter
 from raysect.optical.observer import PowerPipeline0D
 from raysect.core.math import Point2D
 from cherab.tools.inversions import ToroidalVoxelGrid
@@ -46,21 +43,20 @@ MIN_WL        = 1.0     # nm
 MAX_WL        = 1240.0   # nm
 BANDWIDTH     = MAX_WL - MIN_WL        # 1239.75 nm
 PIXEL_SAMPLES = 100_000
-STEP          = 0.05     # m — NumericalIntegrator step size
 N_PROCESSES   = 10
 DATA_DIR      = PROJECT_ROOT / "axuv" / "data"
 OUTPUT_DIR    = PROJECT_ROOT / "output"
 
 
 # ── Uniform emitter material ──────────────────────────────────────────────────
-class UniformVoxelEmitter(InhomogeneousVolumeEmitter):
+class UniformVoxelEmitter(HomogeneousVolumeEmitter):
     """Spatially and spectrally flat volume emitter: ε₀ [W/m³/sr/nm] everywhere."""
 
-    def __init__(self, epsilon0, step=STEP):
-        super().__init__(NumericalIntegrator(step=step, min_samples=5))
+    def __init__(self, epsilon0):
+        super().__init__()
         self.epsilon0 = epsilon0
 
-    def emission_function(self, point, direction, spectrum, world, ray,
+    def emission_function(self, direction, spectrum, world, ray,
                           primitive, world_to_primitive, primitive_to_world):
         spectrum.samples[:] += self.epsilon0
         return spectrum
@@ -215,8 +211,6 @@ def _parse_args():
         choices=["S5", "S16"], metavar="SECTOR",
     )
     parser.add_argument("--pixel-samples", type=int, default=PIXEL_SAMPLES)
-    parser.add_argument("--step", type=float, default=STEP,
-                        help="NumericalIntegrator step [m]")
     parser.add_argument("--processes", type=int, default=N_PROCESSES)
     return parser.parse_args()
 
@@ -226,7 +220,7 @@ if __name__ == "__main__":
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     axuv_df     = load_axuv_df()
-    uniform_mat = UniformVoxelEmitter(EPSILON0, step=args.step)
+    uniform_mat = UniformVoxelEmitter(EPSILON0)
 
     for sector in args.sectors:
         results = _verify_sector(sector, axuv_df, uniform_mat)
@@ -241,8 +235,7 @@ if __name__ == "__main__":
             h5f.attrs["epsilon0_W_m3_sr_nm"] = EPSILON0
             h5f.attrs["bandwidth_nm"]        = BANDWIDTH
             h5f.attrs["pixel_samples"]       = args.pixel_samples
-            h5f.attrs["step_m"]              = args.step
-        print(f"  Saved results to {out_path}")
+            print(f"  Saved results to {out_path}")
 
         _plot_and_save(results, sector)
         print(f"  Saved figures for sector {sector}")
