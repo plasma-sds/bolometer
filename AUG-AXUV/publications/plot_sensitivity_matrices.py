@@ -17,7 +17,7 @@ wavelength_centers = (WAVELENGTH_BIN_EDGES[:-1] + WAVELENGTH_BIN_EDGES[1:]) / 2
 
 # Update default matplotlib parameters for LaTeX plotting for articles
 set_plt_rcparams()
-figsize = (6, 8)  # Since we use imshow, we need to set a figure size explicitly
+figsize = (5.5, 7)  # Since we use imshow, we need to set a figure size explicitly
 
 with open(_GC_LINES_PATH, "rb") as fp:
     gc_d_lines = pickle.load(fp)
@@ -33,7 +33,7 @@ RAYTRANSFER_PATHS = [
 
 print(f"Project root: {project_dir}")
 # %% Test plotting
-raytransfer_path = RAYTRANSFER_PATHS[0]
+raytransfer_path = RAYTRANSFER_PATHS[1]
 try:
     with h5py.File(raytransfer_path, "r") as h5f:
         sensitivity_matrix = h5f["sensitivity_matrix"][()]
@@ -57,19 +57,22 @@ except Exception as e:
 vmax = sensitivity_matrix.max()
 vmin = 1e-6 * vmax
 
-for wavelength_bin in [0, 50, 100, 150, 200]:
+for wavelength_bin in [0, 230]:
 
-    fig, ax = plt.subplots(figsize=figsize, dpi=100)
+    fig, ax = plt.subplots(figsize=figsize, dpi=300)
     ax.set_facecolor("black")
     ax, im = plot_sensitivity_map(
         ax, grid_centres, voxel_map, sensitivity_matrix[20, :, wavelength_bin], vmin=vmin, vmax=vmax
     )
     plot_PFCs(ax, gc_d_lines)
+    energy = 1239.8 / wavelength_centers[wavelength_bin]
     plt.colorbar(im, ax=ax, label=r"Sensitivity [m$^2$ sr]")
     ax.set_xlabel("R [m]")
     ax.set_ylabel("Z [m]")
-    ax.set_title(f"{wavelength_centers[wavelength_bin]:.2f} nm")
-    plt.show()
+    ax.set_title(f"{wavelength_centers[wavelength_bin]:.2f} nm - {energy:.2f} eV")
+    
+    plt.savefig(output_dir / f"sensitivity_map_{wavelength_bin}.eps", format="eps", bbox_inches="tight")
+    plt.savefig(output_dir / f"sensitivity_map_{wavelength_bin}.png", format="png", dpi=300, bbox_inches="tight")
 
 
 # %% Load and plot raytransfer data
