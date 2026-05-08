@@ -43,6 +43,8 @@ import numpy as np
 
 from axuv.responsivity import get_weighted_power, DETECTOR_CALIBRATION_AMPER_PER_WATT
 from axuv.io import open_emission_data, load_etendue
+from axuv.plotting import set_plt_rcparams
+
 
 # ── Filename pattern helpers ───────────────────────────────────────────────────
 # Mirror the four save-names defined in calculate_emissions_for_raytransfer.py.
@@ -135,17 +137,6 @@ def calculate_time_evolution(
     return diode_data_evolution, times
 
 # --- Synthetic measurement data plotting ---
-latex = True
-
-if latex:
-    plt.rcParams.update({
-        "text.usetex": True,
-        "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
-        "font.family": "serif",  # tells matplotlib to use \rmfamily in the LaTeX doc
-    })
-else:
-    plt.rcParams.update({"text.usetex": False})
-
 def plot_time_evolution(
     diode_first,
     diode_last,
@@ -155,7 +146,8 @@ def plot_time_evolution(
     degraded=False,
     vmin=None,
     vmax=None,
-    remove_offset=True,
+    remove_offset=False,
+    shot=None,
 ):
     """
     Plots the time evolution of the synthetic measurement AXUV diode signals
@@ -194,6 +186,9 @@ def plot_time_evolution(
         Upper colour-scale limit for the log-normalised pcolormesh.
     remove_offset : bool
         If True, remove the time offset from the time array to start from 0.
+        If False, try to match the experimental time to the simulation time for `shot`
+    shot : str
+        AUG shotnumber for setting the starting time.
 
     Returns
     -------
@@ -208,6 +203,14 @@ def plot_time_evolution(
 
     if remove_offset:
         times -= times[0]
+    elif shot == "40673":
+        times -= times[0]
+        times += 2.3276
+    elif shot == "41007":
+        times -= times[0]
+        times += 2.3417
+    else:
+        pass
 
     vmax = diode_data_evolution.max() if vmax is None else vmax
     vmin = diode_data_evolution.min() if vmin is None else (vmax / 1e4)
@@ -225,16 +228,15 @@ def plot_time_evolution(
     )
     ax.set_xlabel("Time [ms]")
     ax.set_ylabel("Diode index")
-    plt.colorbar(pcm, ax=ax, label="Line integrated brightness [W/m²]")
+    plt.colorbar(pcm, ax=ax, label=r"$I$ [W/m²]")
     return fig, ax, pcm, diode_data_evolution, times
 
 
 if __name__ == "__main__":
     import argparse
 
-    plt.rcParams.update(
-        {"font.size": 14, "figure.dpi": 300, "figure.constrained_layout.use": True}
-    )
+    # Set the standardized plotting parameters
+    set_plt_rcparams()
 
     parser = argparse.ArgumentParser(
         description=(
@@ -329,8 +331,9 @@ if __name__ == "__main__":
     )
 
     sector = "S5" if emissions_dir.parent.name == "P45" else "S16"
-    title_prefix = emissions_dir.parent.parent.name + " " + sector
-    fname_prefix = emissions_dir.parent.parent.name + "_" + sector + "_"
+    shot = str(emissions_dir.parent.parent.name)
+    title_prefix = shot + " " + sector
+    fname_prefix = shot + "_" + sector + "_"
 
     raytraced_etendue, _, diode_names = load_etendue(sector)
     total_files = sum(len(v) for v in groups.values())
@@ -371,6 +374,7 @@ if __name__ == "__main__":
                     degraded=degraded,
                     vmin=args.vmin,
                     vmax=args.vmax,
+                    shot=shot,
                 )
 
                 fig.savefig(out_dir / "diode_evolution.png", bbox_inches="tight")
@@ -387,6 +391,7 @@ if __name__ == "__main__":
                     degraded=degraded,
                     vmin=args.vmin,
                     vmax=args.vmax,
+                    shot=shot,
                 )
                 fig2, ax2,pcm2, data2, times2 = plot_time_evolution(
                     48,
@@ -397,18 +402,45 @@ if __name__ == "__main__":
                     degraded=degraded,
                     vmin=args.vmin,
                     vmax=args.vmax,
+                    shot=shot,
                 )
                 ax1.set_facecolor("k")
                 ax2.set_facecolor("k")
 
-                fig1.savefig(out_dir / str(fname_prefix + "horiz_notitle.png"), bbox_inches="tight")
-                ax1.set_title(title_prefix + " Horizontal - synthetic")
-                fig1.savefig(out_dir / str(fname_prefix + "horiz.png"), bbox_inches="tight")
+                fig1.savefig(out_dir / str(fname_prefix + "horiz_notitle.png"), dpi=300, bbox_inches="tight")
+                # ax1.set_title(title_prefix + " Horizontal - synthetic")
+                # fig1.savefig(out_dir / str(fname_prefix + "horiz.png"), bbox_inches="tight")
+
+                if shot == "40673":
+                    ax1.axvline(2.328, color="blue")
+                    ax1.axvline(2.32805, ls="..", color="blue")
+                    ax1.axvline(2.329, color="lime")
+                    ax1.axvline(2.3288, ls="..", color="lime")
+                    fig1.savefig(out_dir / str(fname_prefix + "horiz_with_lines.png"), dpi=300, bbox_inches="tight")
+                elif shot == "41007":
+                    ax1.axvline(2.3423, color="blue")
+                    ax1.axvline(2.3428, ls="..", color="blue")
+                    ax1.axvline(2.3462, color="lime")
+                    ax1.axvline(2.3445, ls="..", color="lime")
+                    fig1.savefig(out_dir / str(fname_prefix + "horiz_with_lines.png"), dpi=300, bbox_inches="tight")
                 plt.close(fig1)
 
-                fig2.savefig(out_dir / str(fname_prefix + "vert_notitle.png"), bbox_inches="tight")
-                ax2.set_title(title_prefix + " Vertical - synthetic")
-                fig2.savefig(out_dir / str(fname_prefix + "vert.png"), bbox_inches="tight")
+                fig2.savefig(out_dir / str(fname_prefix + "vert_notitle.png"), dpi=300, bbox_inches="tight")
+                # ax2.set_title(title_prefix + " Vertical - synthetic")
+                # fig2.savefig(out_dir / str(fname_prefix + "vert.png"), bbox_inches="tight")
+
+                if shot == "40673":
+                    ax2.axvline(2.328, color="blue")
+                    ax2.axvline(2.32805, ls="..", color="blue")
+                    ax2.axvline(2.329, color="lime")
+                    ax2.axvline(2.3288,  ls="..", color="lime")
+                    fig2.savefig(out_dir / str(fname_prefix + "vert_with_lines.png"), dpi=300, bbox_inches="tight")
+                elif shot == "41007":
+                    ax2.axvline(2.3423, color="blue")
+                    ax2.axvline(2.3428, ls="..", color="blue")
+                    ax2.axvline(2.3462, color="lime")
+                    ax2.axvline(2.3445, ls="..", color="lime")
+                    fig2.savefig(out_dir / str(fname_prefix + "vert_with_lines.png"), dpi=300, bbox_inches="tight")
                 plt.close(fig2)
 
                 data, times = calculate_time_evolution(
