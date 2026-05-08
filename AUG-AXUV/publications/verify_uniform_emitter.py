@@ -152,10 +152,13 @@ def _verify_sector(sector, axuv_df, uniform_mat):
 
     G_obs    = obs_power / (EPSILON0 * BANDWIDTH)   # [m³·sr]
     G_matrix = sm_bin0.sum(axis=1)                  # [m³·sr]
-    rel_err  = (G_obs - G_matrix) / G_matrix
+    valid    = G_matrix > 0
+    rel_err  = np.where(valid, (G_obs - G_matrix) / np.where(valid, G_matrix, 1.0), np.nan)
 
-    print(f"\n  Mean |rel_err| = {np.abs(rel_err).mean()*100:.2f} %  "
-          f"  max |rel_err| = {np.abs(rel_err).max()*100:.2f} %")
+    n_valid = valid.sum()
+    print(f"\n  Active diodes (G_matrix > 0): {n_valid}/{len(G_matrix)}")
+    print(f"  Mean |rel_err| = {np.nanmean(np.abs(rel_err))*100:.2f} %  "
+          f"  max |rel_err| = {np.nanmax(np.abs(rel_err))*100:.2f} %")
 
     return {
         "diode_names": rt_names,
@@ -200,6 +203,21 @@ def _plot_and_save(results, sector):
     plt.close(fig)
 
 
+# ── Plot from saved HDF5 ──────────────────────────────────────────────────────
+def plot_from_hdf5(sector):
+    """Load results from a previously saved HDF5 and regenerate the figures."""
+    h5_path = OUTPUT_DIR / f"verify_uniform_{sector}.h5"
+    with h5py.File(h5_path, "r") as h5f:
+        results = {
+            "diode_names": [_decode(n) for n in h5f["diode_names"][()]],
+            "G_obs":       h5f["G_obs"][()],
+            "G_matrix":    h5f["G_matrix"][()],
+            "rel_err":     h5f["rel_err"][()],
+        }
+    _plot_and_save(results, sector)
+    print(f"Saved figures for sector {sector}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 def _parse_args():
     parser = argparse.ArgumentParser(
@@ -212,6 +230,10 @@ def _parse_args():
     )
     parser.add_argument("--pixel-samples", type=int, default=PIXEL_SAMPLES)
     parser.add_argument("--processes", type=int, default=N_PROCESSES)
+    parser.add_argument(
+        "--plot-only", action="store_true",
+        help="Skip ray tracing; regenerate figures from existing HDF5 output files.",
+    )
     return parser.parse_args()
 
 
@@ -219,23 +241,27 @@ if __name__ == "__main__":
     args = _parse_args()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    axuv_df     = load_axuv_df()
-    uniform_mat = UniformVoxelEmitter(EPSILON0)
+    if args.plot_only:
+        for sector in args.sectors:
+            plot_from_hdf5(sector)
+    else:
+        axuv_df     = load_axuv_df()
+        uniform_mat = UniformVoxelEmitter(EPSILON0)
 
-    for sector in args.sectors:
-        results = _verify_sector(sector, axuv_df, uniform_mat)
+        for sector in args.sectors:
+            results = _verify_sector(sector, axuv_df, uniform_mat)
 
-        out_path = OUTPUT_DIR / f"verify_uniform_{sector}.h5"
-        with h5py.File(out_path, "w") as h5f:
-            h5f.create_dataset("diode_names",
-                               data=np.array([n.encode() for n in results["diode_names"]]))
-            h5f.create_dataset("G_obs",    data=results["G_obs"])
-            h5f.create_dataset("G_matrix", data=results["G_matrix"])
-            h5f.create_dataset("rel_err",  data=results["rel_err"])
-            h5f.attrs["epsilon0_W_m3_sr_nm"] = EPSILON0
-            h5f.attrs["bandwidth_nm"]        = BANDWIDTH
-            h5f.attrs["pixel_samples"]       = args.pixel_samples
+            out_path = OUTPUT_DIR / f"verify_uniform_{sector}.h5"
+            with h5py.File(out_path, "w") as h5f:
+                h5f.create_dataset("diode_names",
+                                   data=np.array([n.encode() for n in results["diode_names"]]))
+                h5f.create_dataset("G_obs",    data=results["G_obs"])
+                h5f.create_dataset("G_matrix", data=results["G_matrix"])
+                h5f.create_dataset("rel_err",  data=results["rel_err"])
+                h5f.attrs["epsilon0_W_m3_sr_nm"] = EPSILON0
+                h5f.attrs["bandwidth_nm"]        = BANDWIDTH
+                h5f.attrs["pixel_samples"]       = args.pixel_samples
             print(f"  Saved results to {out_path}")
 
-        _plot_and_save(results, sector)
-        print(f"  Saved figures for sector {sector}")
+            _plot_and_save(results, sector)
+            print(f"  Saved figures for sector {sector}")
