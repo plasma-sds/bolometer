@@ -3,6 +3,14 @@
 Analysis and synthetic diagnostic toolkit for the AXUV bolometer system at
 ASDEX Upgrade (AUG).
 
+## Important requirements
+- Linux (Cherab requirement)
+- Python 3.12
+
+---
+
+## Repository layout
+
 The repository is split into two independent Python packages with different
 dependency stacks, reflecting the two main use cases:
 
@@ -11,9 +19,6 @@ dependency stacks, reflecting the two main use cases:
 | `axuv` | Synthetic forward model (3-D ray tracing) | Raysect, Cherab |
 | `axuv_measurement` | Experimental signal analysis | `aug_sfutils` (IPP-only) |
 
----
-
-## Repository layout
 
 ```
 AUG-AXUV/                          ← repo root (add this to sys.path)
