@@ -1,21 +1,24 @@
 # %%
+import os
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 
 from axuv.io import PROJECT_ROOT
 from axuv.plotting import set_plt_rcparams
-from axuv.responsivity import degraded_sensitivity_function
+from axuv.responsivity import degraded_sensitivity_function, sensitivity_function
 
 set_plt_rcparams()
 
 data_dir = PROJECT_ROOT / "output" / "1D_data"
-output_dir = PROJECT_ROOT / "output"
+output_dir = PROJECT_ROOT / "output" / "1D_plots"
+os.makedirs(output_dir, exist_ok=True)
 
 # %% Figure 1: time evolution of η_eff
 
 times = []
 eta_effs = []
+eta_effs_nominal = []
 
 for hdf5_path in sorted(data_dir.glob("highres_*.h5")):
     with h5py.File(hdf5_path, "r") as h5f:
@@ -24,18 +27,26 @@ for hdf5_path in sorted(data_dir.glob("highres_*.h5")):
         t = float(h5f.attrs["observation_time_s"])
 
     R = degraded_sensitivity_function(photon_energies)
+    R_nominal = sensitivity_function(photon_energies)
+    
     eta_effs.append(np.sum(spectral_power * R) / np.sum(spectral_power))
+    eta_effs_nominal.append(np.sum(spectral_power * R_nominal) / np.sum(spectral_power))
     times.append(t)
 
 times = np.array(times)
 eta_effs = np.array(eta_effs)
+eta_effs_nominal = np.array(eta_effs_nominal)
 
 fig, ax = plt.subplots(figsize=(7, 4))
-ax.plot(times, eta_effs, color="k", marker="o", markersize=4)
+
+ax.plot(times, eta_effs_nominal, color="k", marker="o", markersize=4, label="Nominal")
+ax.plot(times, eta_effs, color="r", ls=":", marker="o", markersize=4, label="Degraded")
+
 ax.axvline(2.301, linestyle="--", color="blue", linewidth=2)
 ax.axvline(2.3035, linestyle="--", color="magenta", linewidth=2)
 ax.set_xlabel("Time (s)")
 ax.set_ylabel(r"$\eta_\text{eff}$ (A W$^{-1}$)")
+ax.legend()
 plt.savefig(output_dir / "eta_eff_time_evolution.png")
 plt.savefig(output_dir / "eta_eff_time_evolution.eps", format="EPS")
 plt.close()
@@ -86,3 +97,44 @@ plt.savefig(output_dir / "spectra_2t.png")
 plt.savefig(output_dir / "spectra_2t.eps", format="EPS")
 plt.close()
 print("Saved two-spectra figure")
+
+# %% Figure 3: DREAM average electron temperature and plasma current time evolution
+
+savefolder = PROJECT_ROOT / "output" / "1D_plots"
+os.makedirs(savefolder, exist_ok=True)
+
+# Data is a DREAM hdf5 output file: axuv/data/dream_output.h5
+# read file with h5py, get datasets from "eqsys": T_cold, I_p
+# from "grid": t
+with h5py.File(PROJECT_ROOT / "axuv" / "data" / "dream_output.h5", "r") as h5f:
+    T_cold = np.asarray(h5f["eqsys"]["T_cold"])
+    I_plasma = np.asarray(h5f["eqsys"]["I_p"])
+    times = np.asarray(h5f["grid"]["t"]) + 2.3
+# electron temperature is 2D (r, t), plasma current is 1D (t)
+average_T_cold = np.mean(T_cold, axis=1)
+
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.plot(times, average_T_cold, color="r", label=r"$<T_{\mathrm{e}}>$ [eV]")
+
+ax.set_yscale("log")
+ax.set_xlabel("Time [s]")
+ax.set_ylabel("Electron temperature [eV]")
+ax.set_xlim(2.3, 2.31)
+
+ax2 = ax.twinx()
+ax2.plot(times, I_plasma / 1e3, color="k", label=r"I$_{\mathrm{p}}$ [kA]")
+ax2.set_ylim(0, 900)
+ax2.set_ylabel("Plasma current [kA]")
+
+# add two vertical dashed lines where the spectra were taken
+# first after shard arrival, second during TQ
+ax2.axvline(2.301, color="b", linestyle="--", label=r"1$^{\mathrm{st}}$ spectrum" + "\nshard arrival")
+ax2.axvline(2.3035, color="magenta", linestyle="--", label=r"2$^{\mathrm{nd}}$ spectrum" + "\nduring TQ")
+
+# show one combined legend for the two axes
+plt.legend(ax.get_legend_handles_labels()[0] + ax2.get_legend_handles_labels()[0],
+           ax.get_legend_handles_labels()[1] + ax2.get_legend_handles_labels()[1], loc="upper right")
+
+plt.savefig(PROJECT_ROOT / "output" / "1D_plots" / "dream_time_evolution.png", dpi=300, bbox_inches="tight")
+plt.savefig(PROJECT_ROOT / "output" / "1D_plots" / "dream_time_evolution.eps", format='eps', bbox_inches="tight")
+plt.show()
