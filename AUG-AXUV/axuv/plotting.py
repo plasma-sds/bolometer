@@ -67,13 +67,13 @@ def get_value_at(im, x, y):
         return None  # Out of bounds
 
 
-def show_camera_lines_of_sight(cameralist, gc_d_lines=None):
+def show_camera_lines_of_sight(cameralist, gc_d_lines=None, show=True):
     """
     Plots diode lines of sight with plasma facing components.
     Takes a list of BolometerCamera objects.
     Also shows slit center locations.
     """
-    _, ax = plt.subplots(figsize=[4, 5])
+    fig, ax = plt.subplots(figsize=[4, 5])
     for camera in cameralist:
         for foil in camera.foil_detectors:
             # print(foil.slit.centre_point)
@@ -97,7 +97,10 @@ def show_camera_lines_of_sight(cameralist, gc_d_lines=None):
 
     ax.set_xlim(0.95, 2.4)
     ax.set_ylim(-1.2, 1.2)
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        return fig, ax
 
 
 def show_camera_lines_of_sight_3D(cameralist):
