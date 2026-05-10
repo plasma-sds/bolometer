@@ -35,11 +35,7 @@ from .config import (
 
 # ── io ───────────────────────────────────────────────────────────────────────
 from .io import (
-    axuv_to_hdf,
-    calibrate_and_smooth,
-    process_signals,
-    calculate_indices,
-    read_data_base,
+    get_AXUV_signals,
 )
 
 # ── geometry ─────────────────────────────────────────────────────────────────
@@ -64,8 +60,7 @@ from .processing import (
 
 # ── plotting ─────────────────────────────────────────────────────────────────
 from .plotting import (
-    plot_diag_non_mapped,
-    plot_diff,
+    set_plt_rcparams,
     plot_1D,
     plot_full_integral,
     plot_integral_combined,
@@ -99,15 +94,14 @@ __all__ = [
     "ELLIPSE_T", "ELLIPSE_R", "ELLIPSE_XY", "ELLIPSE",
     "SPI_DB", "SPI_COLUMN_NAMES", "CURRENT_DB", "DESUBLIM_DB", "FULL_DB", "LOS_DB",
     # io
-    "axuv_to_hdf", "calibrate_and_smooth", "process_signals",
-    "calculate_indices", "read_data_base",
+    "get_AXUV_signals",
     # geometry
     "_load_isect_matrix", "_filter_by_polygon", "LOS",
     "show_poloidal", "plot_qsurfaces", "generate_isect_data3d", "get_intersecting_LOSs",
     # processing
     "find_roots", "upsample_interpolate", "downsample", "repair_2d_data", "ridge_filter",
     # plotting
-    "plot_diag_non_mapped", "plot_diff", "plot_1D", "plot_full_integral",
+    "set_plt_rcparams", "plot_1D", "plot_full_integral",
     "plot_integral_combined", "plot_current", "plot_timeslice",
     "radiation_poloidal", "radiation_inside_q2surface",
     "plot_overview_1", "save_sqrt", "sum_LOSs", "save_LOS_sums",

@@ -15,7 +15,7 @@ from axuv_measurement.plotting import set_plt_rcparams
 set_plt_rcparams()
 project_dir = PROJECT_ROOT
 
-def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8, save=False, remove_offset=True):
+def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8, save=False, remove_offset=False):
     """
     Plots the AXUV signal data as pcolormesh for one camera in one shot.
     Optionally removes the starting time offset from the time array to start from 0.
@@ -44,19 +44,57 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
     if remove_offset:
         time -= time[0]
 
-    _, ax = plt.subplots(figsize=(8, 4.5))
+    fig, ax = plt.subplots(figsize=(8, 4.5))
     ax.set_facecolor('k')
-    pcm = ax.pcolormesh(time * 1e3, np.arange(0, 48, 1), data, norm="log", vmin=vmin, vmax=vmax)
+    pcm = ax.pcolormesh(time, np.arange(1, 49, 1), data, norm="log", vmin=vmin, vmax=vmax)
     cbar = plt.colorbar(pcm)
 
 
-    cbar.set_label(r'Line integrated brightness [W/m$^2$]')
-    plt.ylabel('Diode index')
+    cbar.set_label(r"$I$ [W/m²]")
+    plt.ylabel('Diode number')
 
-    ax.set_xlabel("Time [ms]")
-
+    ax.set_xlabel("Time [s]")
+   
     if save:
-        plt.savefig(project_dir + "/output/" + str(shotno) + "/" + camera + "_notitle.png")
+        savename = str(shotno) + "_" + camera + "_notitle.png"
+        plt.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
+
+    # Add vertical lines for shot 40673 and 41007 corresponding to the 80% and 20% thermal energy
+    # in the AUG SPI experiments
+    firstcolor = "cyan"
+    secondcolor = "lime"
+    labelsize = 16
+    savename = str(shotno) + "_" + camera + "_with_lines.png"
+    
+    if str(shotno) == "40673":
+        t1, t2 = 2.32805, 2.3288
+        ax.axvline(t1, ls=":", color=firstcolor)
+        ax.axvline(t2, ls=":", color=secondcolor)
+        ax.set_xticks(np.arange(2.328, 2.3295, 0.0005))
+
+        ax_top = ax.twiny()
+        ax_top.set_xlim(ax.get_xlim())
+        ax_top.set_xticks([t1, t2])
+        ax_top.set_xticklabels([r"80\% $W_{\mathrm{th}}$", r"20\% $W_{\mathrm{th}}$"])
+        ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
+        ax_top.spines['top'].set_visible(False)
+
+        fig.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
+
+    elif str(shotno) == "41007":
+        t1, t2 = 2.3428, 2.3445
+        ax.axvline(t1, ls=":", color=firstcolor)
+        ax.axvline(t2, ls=":", color=secondcolor)
+
+        ax_top = ax.twiny()
+        ax_top.set_xlim(ax.get_xlim())
+        ax_top.set_xticks([t1, t2])
+        ax_top.set_xticklabels([r"80\% $W_{\mathrm{th}}$", r"20\% $W_{\mathrm{th}}$"])
+        ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
+        ax_top.spines['top'].set_visible(False)
+
+        fig.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
+    
 
     title_suffix = camera.replace("_", " ")
     if "vert" in title_suffix:
@@ -67,9 +105,11 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
     title = str(shotno) + " " + title_suffix
     plt.title(title)
     if save:
-        plt.savefig(project_dir + "/output/" + str(shotno) + "/" + camera + ".png")
-    else:
-        plt.show()
+        savename = str(shotno) + "_" + camera + ".png"
+        plt.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
+    
+    plt.show()
+    plt.close(fig)
 
 def save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, project_dir, vmin=1e4, vmax=1e8, save=False):
     plot_one_camera(shotno, vert_data, vert_time, vert_camera, project_dir, vmin=vmin, vmax=vmax, save=save)

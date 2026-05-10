@@ -132,7 +132,6 @@ def calculate_time_evolution(
         diode_data_evolution[:, i] = (
             get_weighted_power(diode_data, degraded=degraded) * noise_array * 4 * np.pi / (DETECTOR_CALIBRATION_AMPER_PER_WATT * etendue[diode_first:diode_last])
         )
-    print(f"Max: {diode_data_evolution.max():.2e}, Min: {diode_data_evolution.min():.2e}, Etendue average: {etendue.mean():.2e}, Diode data average: {diode_data_evolution.mean():.2e}")
 
     return diode_data_evolution, times
 
@@ -217,8 +216,8 @@ def plot_time_evolution(
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
     pcm = ax.pcolormesh(
-        times * 1e3,
-        range(diode_last - diode_first),
+        times,
+        range(1, diode_last - diode_first + 1),
         diode_data_evolution,
         norm="log",
         vmin=vmin,
@@ -226,8 +225,8 @@ def plot_time_evolution(
         cmap="inferno",
         shading="nearest",
     )
-    ax.set_xlabel("Time [ms]")
-    ax.set_ylabel("Diode index")
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Diode number")
     plt.colorbar(pcm, ax=ax, label=r"$I$ [W/m²]")
     return fig, ax, pcm, diode_data_evolution, times
 
@@ -345,10 +344,10 @@ if __name__ == "__main__":
     for variant, files in groups.items():
         filenames = [str(f) for f in files]
 
-        # Extract times [ms] independently so they can be saved as times_ms.csv.
+        # Extract times [s] independently so they can be saved.
         # This mirrors the logic inside plot_time_evolution.
-        times_ms = np.array(
-            [float(_TIME_RE.sub("", f.name).removesuffix(".h5")) * 1e3 for f in files]
+        times = np.array(
+            [float(_TIME_RE.sub("", f.name).removesuffix(".h5")) for f in files]
         )
 
         out_base = out_root / variant
@@ -410,37 +409,45 @@ if __name__ == "__main__":
                 fig1.savefig(out_dir / str(fname_prefix + "horiz_notitle.png"), dpi=300, bbox_inches="tight")
                 # ax1.set_title(title_prefix + " Horizontal - synthetic")
                 # fig1.savefig(out_dir / str(fname_prefix + "horiz.png"), bbox_inches="tight")
-
-                if shot == "40673":
-                    ax1.axvline(2.328, color="blue")
-                    ax1.axvline(2.32805, ls="..", color="blue")
-                    ax1.axvline(2.329, color="lime")
-                    ax1.axvline(2.3288, ls="..", color="lime")
-                    fig1.savefig(out_dir / str(fname_prefix + "horiz_with_lines.png"), dpi=300, bbox_inches="tight")
-                elif shot == "41007":
-                    ax1.axvline(2.3423, color="blue")
-                    ax1.axvline(2.3428, ls="..", color="blue")
-                    ax1.axvline(2.3462, color="lime")
-                    ax1.axvline(2.3445, ls="..", color="lime")
-                    fig1.savefig(out_dir / str(fname_prefix + "horiz_with_lines.png"), dpi=300, bbox_inches="tight")
-                plt.close(fig1)
-
                 fig2.savefig(out_dir / str(fname_prefix + "vert_notitle.png"), dpi=300, bbox_inches="tight")
                 # ax2.set_title(title_prefix + " Vertical - synthetic")
                 # fig2.savefig(out_dir / str(fname_prefix + "vert.png"), bbox_inches="tight")
 
+                # Add vertical lines for shot 40673 and 41007 corresponnding to the 80% and 20% thermal energy
+                # in the JOREK AUG SPI simulation
+                firstcolor = "cyan"
+                secondcolor = "lime"
+                labelsize = 16
                 if shot == "40673":
-                    ax2.axvline(2.328, color="blue")
-                    ax2.axvline(2.32805, ls="..", color="blue")
-                    ax2.axvline(2.329, color="lime")
-                    ax2.axvline(2.3288,  ls="..", color="lime")
+                    t1, t2 = 2.328, 2.329
+                    for ax in ax1, ax2:
+                        ax.axvline(t1, color=firstcolor)
+                        ax.axvline(t2, color=secondcolor)
+                        ax_top = ax.twiny()
+                        ax_top.set_xlim(ax.get_xlim())
+                        ax_top.set_xticks([t1, t2])
+                        ax_top.set_xticklabels([r"80\% $W_{\mathrm{th}}$", r"20\% $W_{\mathrm{th}}$"])
+                        ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
+                        ax_top.spines['top'].set_visible(False)
+
+                    fig1.savefig(out_dir / str(fname_prefix + "horiz_with_lines.png"), dpi=300, bbox_inches="tight")
                     fig2.savefig(out_dir / str(fname_prefix + "vert_with_lines.png"), dpi=300, bbox_inches="tight")
+                    
                 elif shot == "41007":
-                    ax2.axvline(2.3423, color="blue")
-                    ax2.axvline(2.3428, ls="..", color="blue")
-                    ax2.axvline(2.3462, color="lime")
-                    ax2.axvline(2.3445, ls="..", color="lime")
+                    t1, t2 = 2.3423, 2.3462
+                    for ax in ax1, ax2:
+                        ax.axvline(t1, color=firstcolor)
+                        ax.axvline(t2, color=secondcolor)
+                        ax_top = ax.twiny()
+                        ax_top.set_xlim(ax.get_xlim())
+                        ax_top.set_xticks([t1, t2])
+                        ax_top.set_xticklabels([r"80\% $W_{\mathrm{th}}$", r"20\% $W_{\mathrm{th}}$"])
+                        ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
+                        
+                    fig1.savefig(out_dir / str(fname_prefix + "horiz_with_lines.png"), dpi=300, bbox_inches="tight")
                     fig2.savefig(out_dir / str(fname_prefix + "vert_with_lines.png"), dpi=300, bbox_inches="tight")
+                    
+                plt.close(fig1)                    
                 plt.close(fig2)
 
                 data, times = calculate_time_evolution(
@@ -455,7 +462,7 @@ if __name__ == "__main__":
             # Save the line integrated brightness evolution and times in one csv. First column is time in ms,
             # each subsequent column is the line integrated brightness of a diode at that time point
             # Time data is concatenated with diode evolution data to form a single csv
-            np.savetxt(out_dir / "brightness_evolution.csv", np.column_stack((times, data.T)), delimiter=",", header="Time [ms]," + ",".join(diode_names))
+            np.savetxt(out_dir / "brightness_evolution.csv", np.column_stack((times, data.T)), delimiter=",", header="Time [s]," + ",".join(diode_names))
 
 
             print(f"    ✓ {subfolder}")
