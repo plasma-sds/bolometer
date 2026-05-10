@@ -19,6 +19,10 @@ axuv/data/AXUV_LOS_geom.txt
 pyrightconfig.json
 *.egg-info
 
+# Archive files
+*.tar.gz
+*.zip
+
 # Image files
 *.png
 *.gif
