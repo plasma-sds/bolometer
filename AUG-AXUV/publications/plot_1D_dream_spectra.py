@@ -49,6 +49,7 @@ ax.set_ylabel(r"$\eta_\text{eff}$ (A W$^{-1}$)")
 ax.legend()
 plt.savefig(output_dir / "eta_eff_time_evolution.png")
 plt.savefig(output_dir / "eta_eff_time_evolution.eps", format="EPS")
+plt.show()
 plt.close()
 print("Saved eta_eff time evolution")
 
@@ -67,11 +68,17 @@ for t_val, color, label in _SPECTRA:
     with h5py.File(fname, "r") as h5f:
         power = np.asarray(h5f["spectral_power_mean"])
         energies = np.asarray(h5f["photon_energies_eV"])
+        max_energy = 1239.8 / float(h5f.attrs["min_wavelength_nm"])
 
     # sort ascending in photon energy (HDF5 stores ascending wavelength → descending energy)
     order = np.argsort(energies)
     energies = energies[order]
     power = power[order]
+
+    # Add another datapoint after the largest energy so that the plotting doesn't get cut off
+    # due to using plt.step(..., where="mid")
+    energies = np.append(energies, max_energy)
+    power = np.append(power, power[-1])
 
     ax.step(energies, power, where="mid", color=color, label=label, linewidth=1)
 
@@ -83,7 +90,7 @@ ax2.plot(energies, R, color="k", linestyle="--", linewidth=2,
          label="Degraded responsivity")
 
 ax.set_xscale("log")
-ax.set_xlim(1, 2.5e3)
+ax.set_xlim(1, 5e3)
 ax.set_ylim(1e-4, 1e9)
 ax.set_xlabel("Photon energy (eV)")
 ax.set_ylabel(r"Spectral power (W nm$^{-1}$)")
@@ -95,6 +102,7 @@ ax.legend(lines1 + lines2, labels1 + labels2, fontsize=12)
 
 plt.savefig(output_dir / "spectra_2t.png")
 plt.savefig(output_dir / "spectra_2t.eps", format="EPS")
+plt.show()
 plt.close()
 print("Saved two-spectra figure")
 
