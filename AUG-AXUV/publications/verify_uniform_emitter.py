@@ -55,7 +55,16 @@ class UniformVoxelEmitter(HomogeneousVolumeEmitter):
         super().__init__()
         self.epsilon0 = epsilon0
 
-    def emission_function(self, spectrum):
+    def emission_function(
+        self,
+        direction,
+        spectrum,
+        world,
+        ray,
+        primitive,
+        world_to_primitive,
+        primitive_to_world,
+    ):
         spectrum.samples[:] += self.epsilon0
         return spectrum
 
