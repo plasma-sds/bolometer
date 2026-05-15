@@ -165,7 +165,7 @@ def _verify_sector(sector, axuv_df, uniform_mat):
     rel_err = np.where(
         valid, (G_obs - G_matrix) / np.where(valid, G_matrix, 1.0), np.nan
     )
-    rms_err = np.sqrt(np.nanmean(rel_err**2))
+    abs_err = np.where(valid, np.abs(G_obs - G_matrix), np.nan)
 
     n_valid = valid.sum()
     print(f"\n  Active diodes (G_matrix > 0): {n_valid}/{len(G_matrix)}")
@@ -173,14 +173,13 @@ def _verify_sector(sector, axuv_df, uniform_mat):
         f"  Mean |rel_err| = {np.nanmean(np.abs(rel_err)) * 100:.2f} %  "
         f"  max |rel_err| = {np.nanmax(np.abs(rel_err)) * 100:.2f} %"
     )
-    print(f"  RMS rel_err = {rms_err * 100:.2f} %")
 
     return {
         "diode_names": rt_names,
         "G_obs": G_obs,
         "G_matrix": G_matrix,
         "rel_err": rel_err,
-        "rms_err": rms_err,
+        "abs_err": abs_err,
     }
 
 
@@ -286,7 +285,7 @@ if __name__ == "__main__":
                 h5f.create_dataset("G_obs", data=results["G_obs"])
                 h5f.create_dataset("G_matrix", data=results["G_matrix"])
                 h5f.create_dataset("rel_err", data=results["rel_err"])
-                h5f.create_dataset("rms_err", data=results["rms_err"])
+                h5f.create_dataset("abs_err", data=results["abs_err"])
 
                 h5f.attrs["epsilon0_W_m3_sr_nm"] = EPSILON0
                 h5f.attrs["bandwidth_nm"] = BANDWIDTH
