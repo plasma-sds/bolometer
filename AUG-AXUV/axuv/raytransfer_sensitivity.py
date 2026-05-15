@@ -51,9 +51,9 @@ from scipy.spatial import ConvexHull
 
 from axuv.cameras import (
     MAX_WAVELENGTHS,
-    WAVELENGTH_BIN_EDGES,
     SECTOR_CAMERAS,
     SPECTRAL_BINS,
+    WAVELENGTH_BIN_EDGES,
     create_observable_world,
 )
 from axuv.interpolation import (
@@ -168,6 +168,7 @@ def _build_output_path(sectors: list, reflections: bool, output_arg) -> str:
     sector_tag = "_".join(sectors)
     refl_tag = "refl" if reflections else "norefl"
     return f"raytransfer_{sector_tag}_{refl_tag}.h5"
+
 
 def _build_etendue_output_path(sectors: list, output_arg) -> str:
     """Returns the output HDF5 path, auto-generating a name if none was given."""
@@ -376,7 +377,9 @@ if __name__ == "__main__":
         for camera in cameras:
             print(f"  {camera.name}: {len(camera.foil_detectors)} diodes")
 
-        diode_names = [foil.name for camera in cameras for foil in camera.foil_detectors]
+        diode_names = [
+            foil.name for camera in cameras for foil in camera.foil_detectors
+        ]
 
         # ── Build voxel grid ─────────────────────────────────────────────────────
         print("Producing the voxel grid...")
@@ -468,7 +471,9 @@ if __name__ == "__main__":
                         continue
 
                 wl_lo, wl_hi = wavelengths[j], wavelengths[j + 1]
-                print(f"\nBin {j + 1}/{total_wavelength_bins}: {wl_lo:.4f}–{wl_hi:.4f} nm")
+                print(
+                    f"\nBin {j + 1}/{total_wavelength_bins}: {wl_lo:.4f}–{wl_hi:.4f} nm"
+                )
 
                 # ── Compute sensitivity matrix for this wavelength bin and measure time
                 start_time = time.time()
@@ -487,7 +492,9 @@ if __name__ == "__main__":
                         foil.spectral_rays = 1
                         foil.pixel_samples = PIXEL_SAMPLES
                         foil.ray_max_depth = RAY_MAX_DEPTH
-                        foil.render_engine = MulticoreEngine(processes=OBSERVE_PROCESSES)
+                        foil.render_engine = MulticoreEngine(
+                            processes=OBSERVE_PROCESSES
+                        )
                         foil.observe()
                         sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
                         diode_index += 1
@@ -507,12 +514,16 @@ if __name__ == "__main__":
                     total_wavelength_bins - j - 1
                 )
                 print(f"Time taken for one bin: {time_taken_one_bin:.2f} s")
-                print(f"Expected time to complete: {expected_time_remaining / 60:.2f} min")
+                print(
+                    f"Expected time to complete: {expected_time_remaining / 60:.2f} min"
+                )
 
         print(f"\nDone. Results saved to {HDF5_PATH}")
 
     elif ETENDUE_MODE:
-        print("NOTE: There is no reason to use CAD mesh reflections in ETENDUE mode.") if USE_CAD_MESH else None
+        print(
+            "NOTE: There is no reason to use CAD mesh reflections in ETENDUE mode."
+        ) if USE_CAD_MESH else None
         # ── Build world with cameras ─────────────────────────────────────────────
         world, cameras = create_observable_world(
             sectors=SECTORS,
@@ -524,13 +535,13 @@ if __name__ == "__main__":
 
         # Count diodes dynamically so the matrix size is always correct
         NUM_OF_DIODES = sum(len(cam.foil_detectors) for cam in cameras)
-        print(
-            f"Sectors: {SECTORS}  |  Total diodes: {NUM_OF_DIODES}  |  "
-        )
+        print(f"Sectors: {SECTORS}  |  Total diodes: {NUM_OF_DIODES}  |  ")
         for camera in cameras:
             print(f"  {camera.name}: {len(camera.foil_detectors)} diodes")
 
-        diode_names = [foil.name for camera in cameras for foil in camera.foil_detectors]
+        diode_names = [
+            foil.name for camera in cameras for foil in camera.foil_detectors
+        ]
 
         raytraced_etendue = np.zeros(NUM_OF_DIODES)
         raytraced_error = np.zeros(NUM_OF_DIODES)

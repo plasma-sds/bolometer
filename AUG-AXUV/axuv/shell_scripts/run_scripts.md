@@ -49,3 +49,19 @@ python axuv/raytransfer_sensitivity.py --sectors S16 --observe-processes 10 --et
 ```bash
 python publications/verify_uniform_emitter.py --sectors S16 --processes 10
 ```
+
+## High spatial resolution --- 1 by 1 cm
+
+### No reflections
+```bash
+nice -n 5 taskset -c 0-9 python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10 --resolution-r 120 --resolution-z 220 -o axuv/data/raytransfer_S5_highres_norefl.h5
+
+nice -n 5 taskset -c 10-19 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10 --resolution-r 120 --resolution-z 220 -o axuv/data/raytransfer_S16_highres_norefl.h5
+```
+
+### Reflections
+```bash
+nice -n 5 taskset -c 20-29 python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10 --resolution-r 120 --resolution-z 220 --reflections -o axuv/data/raytransfer_S5_highres_refl.h5
+
+nice -n 5 taskset -c 30-39 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10 --resolution-r 120 --resolution-z 220 --reflections -o axuv/data/raytransfer_S16_highres_refl.h5
+```
