@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from axuv_measurement.config import (
     D16, DHT, DVC, DHC
 )
+from axuv.io import WTH_THRESHOLDS as THRESHOLDS
 from axuv_measurement.io import get_AXUV_signals, PROJECT_ROOT
 from axuv_measurement.plotting import set_plt_rcparams
 
@@ -16,9 +17,11 @@ from axuv_measurement.plotting import set_plt_rcparams
 set_plt_rcparams()
 project_dir = PROJECT_ROOT
 
-# Change THRESHOLDS here to match what was computed by publications/plot_time_traces.py.
+# THRESHOLDS is defined centrally in axuv.io (WTH_THRESHOLDS).
 # The corresponding crossing times are read from output/threshold_times.json.
-THRESHOLDS = [0.9, 0.1]
+# Set PLOT_THRESHOLD_LINES = False to skip the W_th vertical-line figures
+# (the no-line figures are always saved regardless).
+PLOT_THRESHOLD_LINES = True
 _pct_str = "_".join(str(int(thr * 100)) for thr in THRESHOLDS) + "pct"
 
 SHOT_CONFIG = {
@@ -84,7 +87,7 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
 
     shot_entry = _threshold_times.get(str(shotno), {})
     t_thr = [shot_entry.get(str(thr), {}).get("exp") for thr in THRESHOLDS]
-    if all(t is not None for t in t_thr):
+    if PLOT_THRESHOLD_LINES and all(t is not None for t in t_thr):
         for t, color in zip(t_thr, [firstcolor, secondcolor]):
             ax.axvline(t, ls=":", color=color)
 

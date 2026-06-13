@@ -3,7 +3,7 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 
-from axuv.io import PROJECT_ROOT
+from axuv.io import PROJECT_ROOT, WTH_THRESHOLDS as THRESHOLDS
 from axuv.plotting import set_plt_rcparams
 
 set_plt_rcparams()
@@ -51,9 +51,8 @@ def crossing_time(t, y, threshold):
 
 
 # %% Compute and cache threshold crossing times
-# Change THRESHOLDS here to regenerate figures at a different level.
+# THRESHOLDS is defined centrally in axuv.io (WTH_THRESHOLDS).
 # Already-computed entries in threshold_times.json are reused without recomputing.
-THRESHOLDS = [0.9, 0.1]
 THRESHOLD_COLORS = ["deepskyblue", "limegreen"]
 
 _threshold_times_path = output_dir / "threshold_times.json"

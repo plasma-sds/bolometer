@@ -13,6 +13,11 @@ DATADIR = str(DATADIR_ENV) + "/"
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+# Single source of truth for the W_th fractions at which vertical lines are drawn.
+# Consumed by publications/plot_time_traces.py, axuv/emission_to_measurement.py and
+# axuv_measurement/plotting_from_shotfiles.py.
+WTH_THRESHOLDS = [0.9, 0.1]
+
 CURRENTDIR = DATADIR + "/" + str(os.environ.get("currentdir")) + "/"
 SAVEDIR = CURRENTDIR + "output/"
 

@@ -43,7 +43,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from axuv.responsivity import get_weighted_power, DETECTOR_CALIBRATION_AMPER_PER_WATT
-from axuv.io import open_emission_data, load_etendue
+from axuv.io import open_emission_data, load_etendue, WTH_THRESHOLDS
 from axuv.plotting import set_plt_rcparams
 
 
@@ -285,9 +285,15 @@ if __name__ == "__main__":
         "--thresholds",
         type=float,
         nargs=2,
-        default=None,
+        default=WTH_THRESHOLDS,
         metavar=("T1", "T2"),
-        help="W_th threshold fractions for vertical-line overlays (e.g. --thresholds 0.9 0.1). Times are read from output/threshold_times.json.",
+        help="W_th threshold fractions for vertical-line overlays (e.g. --thresholds 0.9 0.1). "
+        "Defaults to WTH_THRESHOLDS from axuv.io. Times are read from output/threshold_times.json.",
+    )
+    parser.add_argument(
+        "--no-thresholds",
+        action="store_true",
+        help="Disable W_th vertical-line overlays; only the no-line figures are saved.",
     )
     args = parser.parse_args()
 
@@ -343,7 +349,7 @@ if __name__ == "__main__":
     title_prefix = shot + " " + sector
     fname_prefix = shot + "_" + sector + "_"
 
-    thresholds = args.thresholds
+    thresholds = None if args.no_thresholds else args.thresholds
     _pct_str = None
     t_thresholds = None
     if thresholds is not None:
