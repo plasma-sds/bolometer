@@ -30,12 +30,16 @@ AUG-AXUV/                          ← repo root (add this to sys.path)
 │   ├── plasma.py                  ← Cherab spectral emission helpers
 │   ├── responsivity.py            ← AXUV diode responsivity curves
 │   ├── interpolation.py           ← JOREK → poloidal-grid interpolation
-│   ├── io.py                      ← ray-transfer HDF5 loading, path constants
+│   ├── io.py                      ← ray-transfer HDF5 loading, path constants,
+│   │                                 WTH_THRESHOLDS (W_th line levels)
 │   ├── plotting.py                ← visualisation helpers
+│   ├── cad_files.py               ← AUG vessel CAD file paths/helpers
 │   ├── raytransfer_sensitivity.py ← Stage 1 CLI script (geometry matrix)
 │   ├── calculate_emissions_for_raytransfer.py  ← Stage 2 (plasma emissions)
 │   ├── emission_to_measurement.py ← Stage 3 (synthetic signals)
-│   └── scripts/                   ← SLURM submission scripts
+│   ├── data/                      ← geometry, JOREK and ray-transfer data
+│   └── shell_scripts/             ← SLURM submission + plotting wrappers
+│                                     (see shell_scripts/run_scripts.md)
 │
 ├── axuv_measurement/              ← experimental signal analysis package
 │   ├── __init__.py                ← re-exports full public API
@@ -48,6 +52,8 @@ AUG-AXUV/                          ← repo root (add this to sys.path)
 │   ├── processing.py              ← downsampling, repair, ridge filter,
 │   │                                 interpolation helpers
 │   ├── plotting.py                ← all plot_* / radiation_* / save_* functions
+│   ├── plotting_from_shotfiles.py ← saves experimental camera figures
+│   │                                 (with W_th vertical lines)
 │   └── animation.py               ← poloidal scatter and line-plot animations
 │
 ├── tests/                         ← unit tests (cover axuv/ only; no AUG
@@ -56,19 +62,29 @@ AUG-AXUV/                          ← repo root (add this to sys.path)
 │   ├── test_interpolation.py
 │   └── test_plasma.py
 │
-├── measurement/                   ← scripts, notebooks, and calibration files
-│   │                                 for working with experimental data
+├── publications/                  ← figure-generating scripts for the paper
+│   ├── plot_time_traces.py        ← W_th time traces; writes
+│   │                                 output/threshold_times.json
+│   ├── plot_sensitivity_matrices.py, plot_etendue.py, plot_sightlines.py,
+│   │   plot_degraded_sensitivity.py, compare_highres_lowres.py,
+│   │   plot_1D_dream_spectra.py, verify_uniform_emitter.py
+│
+├── measurement_utils/             ← scripts and calibration files for
+│   │                                 working with experimental data
 │   ├── amplification_lookup.py
 │   ├── blc_xvu_calibration.py
 │   ├── xvu_amplification.py
-│   └── *.ipynb
+│   ├── signals.txt
+│   └── data/
+│
+├── output/                        ← generated figures, CSVs, threshold_times.json
 │
 ├── aug/                           ← AUG vessel / diagnostic geometry data
 │   ├── vessel/, divertor/, …
 │
 ├── sightline_DREAMoutput_Ne_SPI.py  ← simple LOS model on DREAM SPI output
 ├── requirements.txt
-└── pyrightconfig.json
+└── pyproject.toml                 ← editable-install / packaging config
 ```
 
 ---
@@ -141,11 +157,28 @@ python axuv/calculate_emissions_for_raytransfer.py
 ### Stage 3 — Synthetic signals
 
 Folds spectral power through the AXUV diode responsivity curve to produce a
-scalar signal per diode per timestep.
+scalar signal per diode per timestep. Takes the emissions directory produced by
+Stage 2 as a positional argument.
 
 ```bash
-python axuv/emission_to_measurement.py
+python axuv/emission_to_measurement.py axuv/data/40673/P1/output
 ```
+
+`W_th` vertical lines are overlaid by default at the levels in `WTH_THRESHOLDS`
+(`axuv/io.py`); the crossing times are read from `output/threshold_times.json`,
+which `publications/plot_time_traces.py` must have produced first. Override the
+levels with `--thresholds T1 T2`, or disable the overlay with `--no-thresholds`
+(the no-line figures are always saved either way).
+
+To regenerate **all** synthetic figures in one go (runs `plot_time_traces.py`
+first, then Stage 3 on every dataset), use the wrapper script:
+
+```bash
+axuv/shell_scripts/plot_and_save_synthetic_measurements.sh
+```
+
+See `axuv/shell_scripts/run_scripts.md` for the threshold-plotting workflow and
+the matching experimental wrapper.
 
 ### Quick import examples
 
@@ -210,8 +243,13 @@ am.plot_current(41000, start=2.3, end=2.45)
 ### Notes
 
 - `axuv_to_hdf` and `calibrate_and_smooth` in `io.py` are due for a logic rewrite.
-- The `measurement/` directory contains standalone scripts and Jupyter
-  notebooks that import from `axuv_measurement`.
+- The `measurement_utils/` directory contains standalone scripts and
+  calibration files that import from `axuv_measurement`.
+- `plotting_from_shotfiles.py` saves the experimental AXUV camera figures with
+  `W_th` vertical lines (levels from `WTH_THRESHOLDS`, times read from
+  `output/threshold_times.json`). Toggle the overlay with the
+  `PLOT_THRESHOLD_LINES` flag at the top of that file. To regenerate everything
+  on the AUG server, use `axuv/shell_scripts/plot_and_save_experimental_measurements.sh`.
 - The `radiation_inside_q2surface` function replaces the former pair
   `radiation_inside_q2surface` / `radiation_inside_q2surface_2`; pass
   `use_sqrt=True` for the square-root-weighted variant.
