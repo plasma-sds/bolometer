@@ -1,4 +1,5 @@
 # %%
+import json
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -49,10 +50,36 @@ def crossing_time(t, y, threshold):
     return t0 + (threshold - y0) * (t1 - t0) / (y1 - y0)
 
 
-# %% Plot
-THRESHOLDS = [0.8, 0.2]
+# %% Compute and cache threshold crossing times
+# Change THRESHOLDS here to regenerate figures at a different level.
+# Already-computed entries in threshold_times.json are reused without recomputing.
+THRESHOLDS = [0.9, 0.1]
 THRESHOLD_COLORS = ["deepskyblue", "limegreen"]
 
+_threshold_times_path = output_dir / "threshold_times.json"
+threshold_times = {}
+if _threshold_times_path.exists():
+    with open(_threshold_times_path) as f:
+        threshold_times = json.load(f)
+
+for shot in SHOTS:
+    shot_key = str(shot)
+    threshold_times.setdefault(shot_key, {})
+    wth_sim = data[shot]["wth"]["sim"]
+    wth_exp = data[shot]["wth"]["exp"]
+    for thr in THRESHOLDS:
+        thr_key = str(thr)
+        if thr_key not in threshold_times[shot_key]:
+            t_sim = crossing_time(wth_sim[:, 0], wth_sim[:, 1], thr)
+            t_exp = crossing_time(wth_exp[:, 0], wth_exp[:, 1], thr)
+            threshold_times[shot_key][thr_key] = {"sim": t_sim, "exp": t_exp}
+
+with open(_threshold_times_path, "w") as f:
+    json.dump(threshold_times, f, indent=2)
+
+_pct_str = "_".join(str(int(thr * 100)) for thr in THRESHOLDS) + "pct"
+
+# %% Plot
 for shot in SHOTS:
     fig, ax = plt.subplots(figsize=(8, 4.7))
 
@@ -85,25 +112,24 @@ for shot in SHOTS:
             )
 
     # Vertical lines at W_th thresholds
-    wth_sim = data[shot]["wth"]["sim"]
-    wth_exp = data[shot]["wth"]["exp"]
     for i, thr in enumerate(THRESHOLDS):
-        t_sim = crossing_time(wth_sim[:, 0], wth_sim[:, 1], thr)
-        t_exp = crossing_time(wth_exp[:, 0], wth_exp[:, 1], thr)
-        pct = int(thr * 100)
+        entry = threshold_times[str(shot)][str(thr)]
+        t_sim = entry["sim"]
+        t_exp = entry["exp"]
+        label_str = rf"$t_{{{thr}W}}$"
         if t_sim is not None:
             ax.axvline(
                 t_sim,
                 color=THRESHOLD_COLORS[i],
                 linestyle="-",
-                label=rf"$W_\mathrm{{th}} = {pct}\%$ JOREK",
+                label=f"{label_str} JOREK",
             )
         if t_exp is not None:
             ax.axvline(
                 t_exp,
                 color=THRESHOLD_COLORS[i],
                 linestyle=":",
-                label=rf"$W_\mathrm{{th}} = {pct}\%$ exp",
+                label=f"{label_str} exp",
             )
 
     ax.set_xlim(t_start, t_end)
@@ -113,8 +139,8 @@ for shot in SHOTS:
     ax.set_title(f"\\#{shot}")
     ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), borderaxespad=0, ncols=1)
 
-    plt.savefig(output_dir / f"time_traces_{shot}.png", dpi=300, bbox_inches="tight")
+    plt.savefig(output_dir / f"time_traces_{shot}_{_pct_str}.png", dpi=300, bbox_inches="tight")
     plt.savefig(
-        output_dir / f"time_traces_{shot}.eps", format="eps", bbox_inches="tight"
+        output_dir / f"time_traces_{shot}_{_pct_str}.eps", format="eps", bbox_inches="tight"
     )
     plt.show()

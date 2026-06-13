@@ -2,6 +2,7 @@
 IPython Notebook for plotting AXUV signals from shotfiles
 """
 # %%
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -14,6 +15,26 @@ from axuv_measurement.plotting import set_plt_rcparams
 
 set_plt_rcparams()
 project_dir = PROJECT_ROOT
+
+# Change THRESHOLDS here to match what was computed by publications/plot_time_traces.py.
+# The corresponding crossing times are read from output/threshold_times.json.
+THRESHOLDS = [0.9, 0.1]
+_pct_str = "_".join(str(int(thr * 100)) for thr in THRESHOLDS) + "pct"
+
+SHOT_CONFIG = {
+    40673: {"starttime": 2.3276, "duration": 1.9e-3},
+    41007: {"starttime": 2.3417, "duration": 5.2e-3},
+}
+
+_threshold_times_path = project_dir / "output" / "threshold_times.json"
+if not _threshold_times_path.exists():
+    raise FileNotFoundError(
+        f"Threshold times JSON not found at {_threshold_times_path}. "
+        "Run publications/plot_time_traces.py first."
+    )
+with open(_threshold_times_path) as _f:
+    _threshold_times = json.load(_f)
+
 
 def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8, save=False, remove_offset=False):
     """
@@ -49,52 +70,33 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
     pcm = ax.pcolormesh(time, np.arange(1, 49, 1), data, norm="log", vmin=vmin, vmax=vmax)
     cbar = plt.colorbar(pcm)
 
-
     cbar.set_label(r"$I$ [W/m²]")
     plt.ylabel('Diode number')
-
     ax.set_xlabel("Time [s]")
-   
+
     if save:
         savename = str(shotno) + "_" + camera + "_notitle.png"
         plt.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
 
-    # Add vertical lines for shot 40673 and 41007 corresponding to the 80% and 20% thermal energy
-    # in the AUG SPI experiments
     firstcolor = "cyan"
     secondcolor = "lime"
     labelsize = 16
-    savename = str(shotno) + "_" + camera + "_with_lines.png"
-    
-    if str(shotno) == "40673":
-        t1, t2 = 2.32805, 2.3288
-        ax.axvline(t1, ls=":", color=firstcolor)
-        ax.axvline(t2, ls=":", color=secondcolor)
-        ax.set_xticks(np.arange(2.328, 2.3295, 0.0005))
+
+    shot_entry = _threshold_times.get(str(shotno), {})
+    t_thr = [shot_entry.get(str(thr), {}).get("exp") for thr in THRESHOLDS]
+    if all(t is not None for t in t_thr):
+        for t, color in zip(t_thr, [firstcolor, secondcolor]):
+            ax.axvline(t, ls=":", color=color)
 
         ax_top = ax.twiny()
         ax_top.set_xlim(ax.get_xlim())
-        ax_top.set_xticks([t1, t2])
-        ax_top.set_xticklabels([r"80\% $W_{\mathrm{th}}$", r"20\% $W_{\mathrm{th}}$"])
+        ax_top.set_xticks(t_thr)
+        ax_top.set_xticklabels([rf"$t_{{{thr}W}}$" for thr in THRESHOLDS])
         ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
         ax_top.spines['top'].set_visible(False)
 
+        savename = str(shotno) + "_" + camera + f"_{_pct_str}.png"
         fig.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
-
-    elif str(shotno) == "41007":
-        t1, t2 = 2.3428, 2.3445
-        ax.axvline(t1, ls=":", color=firstcolor)
-        ax.axvline(t2, ls=":", color=secondcolor)
-
-        ax_top = ax.twiny()
-        ax_top.set_xlim(ax.get_xlim())
-        ax_top.set_xticks([t1, t2])
-        ax_top.set_xticklabels([r"80\% $W_{\mathrm{th}}$", r"20\% $W_{\mathrm{th}}$"])
-        ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
-        ax_top.spines['top'].set_visible(False)
-
-        fig.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
-    
 
     title_suffix = camera.replace("_", " ")
     if "vert" in title_suffix:
@@ -107,7 +109,7 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
     if save:
         savename = str(shotno) + "_" + camera + ".png"
         plt.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
-    
+
     plt.show()
     plt.close(fig)
 
@@ -119,8 +121,8 @@ def save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, 
 save_figures = True
 # %%
 shotno = 40673  # S16
-starttime = 2.3276
-endtime = starttime + 1.9e-3
+starttime = SHOT_CONFIG[shotno]["starttime"]
+endtime = starttime + SHOT_CONFIG[shotno]["duration"]
 vert_camera = D16
 horiz_camera = DHT
 
@@ -131,8 +133,8 @@ save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, proj
 
 # %%
 shotno = 40673  # S05
-starttime = 2.3276
-endtime = starttime + 1.9e-3
+starttime = SHOT_CONFIG[shotno]["starttime"]
+endtime = starttime + SHOT_CONFIG[shotno]["duration"]
 vert_camera = DVC
 horiz_camera = DHC
 
@@ -142,8 +144,8 @@ save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, proj
 
 # %%
 shotno = 41007  # S16
-starttime = 2.3417
-endtime = starttime + 5.2e-3
+starttime = SHOT_CONFIG[shotno]["starttime"]
+endtime = starttime + SHOT_CONFIG[shotno]["duration"]
 vert_camera = D16
 horiz_camera = DHT
 
@@ -153,8 +155,8 @@ save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, proj
 
 # %%
 shotno = 41007  # S05
-starttime = 2.3417
-endtime = starttime + 5.2e-3
+starttime = SHOT_CONFIG[shotno]["starttime"]
+endtime = starttime + SHOT_CONFIG[shotno]["duration"]
 vert_camera = DVC
 horiz_camera = DHC
 

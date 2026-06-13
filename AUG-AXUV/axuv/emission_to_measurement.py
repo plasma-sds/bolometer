@@ -34,6 +34,7 @@ All responsivity curve helpers live in axuv.responsivity.
 All data-loading helpers live in axuv.io.
 """
 
+import json
 import os
 import re
 from pathlib import Path
@@ -280,6 +281,14 @@ if __name__ == "__main__":
         metavar="V",
         help="Colour-scale upper limit for the log-normalised plot of the line integrated brightness.",
     )
+    parser.add_argument(
+        "--thresholds",
+        type=float,
+        nargs=2,
+        default=None,
+        metavar=("T1", "T2"),
+        help="W_th threshold fractions for vertical-line overlays (e.g. --thresholds 0.9 0.1). Times are read from output/threshold_times.json.",
+    )
     args = parser.parse_args()
 
     # ── Validate input directory ───────────────────────────────────────────────
@@ -333,6 +342,24 @@ if __name__ == "__main__":
     shot = str(emissions_dir.parent.parent.name)
     title_prefix = shot + " " + sector
     fname_prefix = shot + "_" + sector + "_"
+
+    thresholds = args.thresholds
+    _pct_str = None
+    t_thresholds = None
+    if thresholds is not None:
+        _pct_str = "_".join(str(int(thr * 100)) for thr in thresholds) + "pct"
+        _thr_json = project_root / "output" / "threshold_times.json"
+        if not _thr_json.exists():
+            raise SystemExit(
+                f"Error: {_thr_json} not found. Run publications/plot_time_traces.py first."
+            )
+        with open(_thr_json) as _f:
+            _threshold_times = json.load(_f)
+        shot_entry = _threshold_times.get(shot, {})
+        t_thresholds = [shot_entry.get(str(thr), {}).get("sim") for thr in thresholds]
+        if any(t is None for t in t_thresholds):
+            print(f"Warning: not all threshold times found for shot {shot}; skipping vertical lines.")
+            t_thresholds = None
 
     raytraced_etendue, _, diode_names = load_etendue(sector)
     total_files = sum(len(v) for v in groups.values())
@@ -407,45 +434,24 @@ if __name__ == "__main__":
                 ax2.set_facecolor("k")
 
                 fig1.savefig(out_dir / str(fname_prefix + "horiz_notitle.png"), dpi=300, bbox_inches="tight")
-                # ax1.set_title(title_prefix + " Horizontal - synthetic")
-                # fig1.savefig(out_dir / str(fname_prefix + "horiz.png"), bbox_inches="tight")
                 fig2.savefig(out_dir / str(fname_prefix + "vert_notitle.png"), dpi=300, bbox_inches="tight")
-                # ax2.set_title(title_prefix + " Vertical - synthetic")
-                # fig2.savefig(out_dir / str(fname_prefix + "vert.png"), bbox_inches="tight")
 
-                # Add vertical lines for shot 40673 and 41007 corresponnding to the 80% and 20% thermal energy
-                # in the JOREK AUG SPI simulation
-                firstcolor = "cyan"
-                secondcolor = "lime"
-                labelsize = 16
-                if shot == "40673":
-                    t1, t2 = 2.328, 2.329
-                    for ax in ax1, ax2:
-                        ax.axvline(t1, color=firstcolor)
-                        ax.axvline(t2, color=secondcolor)
-                        ax_top = ax.twiny()
-                        ax_top.set_xlim(ax.get_xlim())
-                        ax_top.set_xticks([t1, t2])
-                        ax_top.set_xticklabels([r"80\% $W_{\mathrm{th}}$", r"20\% $W_{\mathrm{th}}$"])
+                if t_thresholds is not None and _pct_str is not None:
+                    firstcolor = "cyan"
+                    secondcolor = "lime"
+                    labelsize = 16
+                    for cur_ax in (ax1, ax2):
+                        for t, color in zip(t_thresholds, [firstcolor, secondcolor]):
+                            cur_ax.axvline(t, color=color)
+                        ax_top = cur_ax.twiny()
+                        ax_top.set_xlim(cur_ax.get_xlim())
+                        ax_top.set_xticks(t_thresholds)
+                        ax_top.set_xticklabels([rf"$t_{{{thr}W}}$" for thr in thresholds])
                         ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
                         ax_top.spines['top'].set_visible(False)
 
-                    fig1.savefig(out_dir / str(fname_prefix + "horiz_with_lines.png"), dpi=300, bbox_inches="tight")
-                    fig2.savefig(out_dir / str(fname_prefix + "vert_with_lines.png"), dpi=300, bbox_inches="tight")
-                    
-                elif shot == "41007":
-                    t1, t2 = 2.3423, 2.3462
-                    for ax in ax1, ax2:
-                        ax.axvline(t1, color=firstcolor)
-                        ax.axvline(t2, color=secondcolor)
-                        ax_top = ax.twiny()
-                        ax_top.set_xlim(ax.get_xlim())
-                        ax_top.set_xticks([t1, t2])
-                        ax_top.set_xticklabels([r"80\% $W_{\mathrm{th}}$", r"20\% $W_{\mathrm{th}}$"])
-                        ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
-                        
-                    fig1.savefig(out_dir / str(fname_prefix + "horiz_with_lines.png"), dpi=300, bbox_inches="tight")
-                    fig2.savefig(out_dir / str(fname_prefix + "vert_with_lines.png"), dpi=300, bbox_inches="tight")
+                    fig1.savefig(out_dir / str(fname_prefix + f"horiz_{_pct_str}.png"), dpi=300, bbox_inches="tight")
+                    fig2.savefig(out_dir / str(fname_prefix + f"vert_{_pct_str}.png"), dpi=300, bbox_inches="tight")
                     
                 plt.close(fig1)                    
                 plt.close(fig2)
