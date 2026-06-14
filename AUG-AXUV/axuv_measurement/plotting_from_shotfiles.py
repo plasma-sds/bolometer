@@ -5,6 +5,7 @@ IPython Notebook for plotting AXUV signals from shotfiles
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 from axuv_measurement.config import (
     D16, DHT, DVC, DHC
@@ -97,6 +98,7 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
         ax_top.set_xticklabels([rf"$t_{{{thr}W}}$" for thr in THRESHOLDS])
         ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
         ax_top.spines['top'].set_visible(False)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
 
         savename = str(shotno) + "_" + camera + f"_{_pct_str}.png"
         fig.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")

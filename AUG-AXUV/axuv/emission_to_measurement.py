@@ -40,6 +40,7 @@ import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import numpy as np
 
 from axuv.responsivity import get_weighted_power, DETECTOR_CALIBRATION_AMPER_PER_WATT
@@ -414,7 +415,7 @@ if __name__ == "__main__":
 
             else:
 
-                fig1, ax1,pcm1, data1, times1 = plot_time_evolution(
+                fig1, ax1, pcm1, data1, times1 = plot_time_evolution(
                     0,
                     48,
                     filenames,
@@ -425,7 +426,7 @@ if __name__ == "__main__":
                     vmax=args.vmax,
                     shot=shot,
                 )
-                fig2, ax2,pcm2, data2, times2 = plot_time_evolution(
+                fig2, ax2, pcm2, data2, times2 = plot_time_evolution(
                     48,
                     96,
                     filenames,
@@ -447,6 +448,7 @@ if __name__ == "__main__":
                     secondcolor = "lime"
                     labelsize = 16
                     for cur_ax in (ax1, ax2):
+                        cur_ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
                         for t, color in zip(t_thresholds, [firstcolor, secondcolor]):
                             cur_ax.axvline(t, color=color)
                         ax_top = cur_ax.twiny()
@@ -458,8 +460,8 @@ if __name__ == "__main__":
 
                     fig1.savefig(out_dir / str(fname_prefix + f"horiz_{_pct_str}.png"), dpi=300, bbox_inches="tight")
                     fig2.savefig(out_dir / str(fname_prefix + f"vert_{_pct_str}.png"), dpi=300, bbox_inches="tight")
-                    
-                plt.close(fig1)                    
+
+                plt.close(fig1)
                 plt.close(fig2)
 
                 data, times = calculate_time_evolution(
