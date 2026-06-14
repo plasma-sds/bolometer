@@ -15,7 +15,11 @@ output_dir.mkdir(parents=True, exist_ok=True)
 
 SHOTS = [40673, 41007]
 START_TIMES = [2.3276, 2.3417]
-VARIABLES = ["frad", "ip", "wth"]
+include_frad = False
+if include_frad:
+    VARIABLES = ["frad", "ip", "wth"]
+else:
+    VARIABLES = ["ip", "wth"]
 COLORS = {"frad": "blue", "ip": "black", "wth": "red"}
 LABELS = {
     "frad": r"$f_\mathrm{rad}$",
@@ -80,7 +84,7 @@ _pct_str = "_".join(str(int(thr * 100)) for thr in THRESHOLDS) + "pct"
 
 # %% Plot
 for shot in SHOTS:
-    fig, ax = plt.subplots(figsize=(8, 4.7))
+    fig, ax = plt.subplots(figsize=(4.95, 5))
 
     t_start = START_TIMES[SHOTS.index(shot)]
     t_end = max(data[shot][var]["sim"][-1, 0] for var in VARIABLES)
@@ -135,8 +139,8 @@ for shot in SHOTS:
     ax.set_ylim(0, 1.05)
     ax.grid()
     ax.set_xlabel("Time [s]")
-    ax.set_title(f"\\#{shot}")
-    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), borderaxespad=0, ncols=1)
+    # ax.set_title(f"\\#{shot}")
+    ax.legend(loc="lower left", bbox_to_anchor=(-0.1, 1.02), borderaxespad=0, ncols=2, fontsize="small")
 
     plt.savefig(output_dir / f"time_traces_{shot}_{_pct_str}.png", dpi=300, bbox_inches="tight")
     plt.savefig(
