@@ -1,4 +1,5 @@
 # %%
+from scipy.constants import alpha
 import os
 import h5py
 import numpy as np
@@ -6,10 +7,11 @@ import matplotlib.pyplot as plt
 
 from axuv.io import PROJECT_ROOT
 from axuv.plotting import set_plt_rcparams
-from axuv.responsivity import degraded_sensitivity_function, sensitivity_function
+from axuv.responsivity import degraded_sensitivity_function, sensitivity_function, worst_sensitivity
 
 set_plt_rcparams()
 
+axuv_data_dir = PROJECT_ROOT / "axuv" / "data"
 data_dir = PROJECT_ROOT / "output" / "1D_data"
 output_dir = PROJECT_ROOT / "output" / "1D_plots"
 os.makedirs(output_dir, exist_ok=True)
@@ -17,8 +19,9 @@ os.makedirs(output_dir, exist_ok=True)
 # %% Figure 1: time evolution of η_eff
 
 times = []
-eta_effs = []
+eta_effs_degraded = []
 eta_effs_nominal = []
+eta_effs_worst = []
 
 for hdf5_path in sorted(data_dir.glob("highres_*.h5")):
     with h5py.File(hdf5_path, "r") as h5f:
@@ -28,25 +31,32 @@ for hdf5_path in sorted(data_dir.glob("highres_*.h5")):
 
     R = degraded_sensitivity_function(photon_energies)
     R_nominal = sensitivity_function(photon_energies)
+    R_worst = worst_sensitivity(photon_energies)
     
-    eta_effs.append(np.sum(spectral_power * R) / np.sum(spectral_power))
+    eta_effs_degraded.append(np.sum(spectral_power * R) / np.sum(spectral_power))
     eta_effs_nominal.append(np.sum(spectral_power * R_nominal) / np.sum(spectral_power))
+    eta_effs_worst.append(np.sum(spectral_power * R_worst) / np.sum(spectral_power))
     times.append(t)
 
 times = np.array(times)
-eta_effs = np.array(eta_effs)
+eta_effs_degraded = np.array(eta_effs_degraded)
 eta_effs_nominal = np.array(eta_effs_nominal)
+eta_effs_worst = np.array(eta_effs_worst)
 
 fig, ax = plt.subplots(figsize=(7, 4))
 
 ax.plot(times, eta_effs_nominal, color="k", marker="o", markersize=4, label="Nominal")
-ax.plot(times, eta_effs, color="r", ls=":", marker="o", markersize=4, label="Degraded")
+ax.plot(times, eta_effs_degraded, color="r", ls="--", marker="o", markersize=4, label="Degraded")
+ax.plot(times, eta_effs_worst, color="b", ls="-.", marker="o", markersize=4, label="Worst estimated")
+ax.fill_between(times, eta_effs_nominal, eta_effs_worst, hatch="//", facecolor="none", alpha=0.3, edgecolor="grey", label="Confidence interval")
 
 ax.axvline(2.301, linestyle="--", color="blue", linewidth=2)
 ax.axvline(2.3035, linestyle="--", color="magenta", linewidth=2)
 ax.set_xlabel("Time (s)")
 ax.set_ylabel(r"$\eta_\text{eff}$ (A W$^{-1}$)")
-ax.legend()
+ax.set_ylim(0, 0.3)
+ax.set_xlim(2.3, 2.31)
+ax.legend(fontsize="small", ncols=2, framealpha=1.0)
 plt.savefig(output_dir / "eta_eff_time_evolution.png")
 plt.savefig(output_dir / "eta_eff_time_evolution.eps", format="EPS")
 plt.show()
@@ -93,7 +103,7 @@ ax.set_xscale("log")
 ax.set_xlim(1, 5e3)
 ax.set_ylim(1e-4, 1e9)
 ax.set_xlabel("Photon energy (eV)")
-ax.set_ylabel(r"Spectral power (W nm$^{-1}$)")
+ax.set_ylabel(r"Spectral power (W eV$^{-1}$)")
 ax2.set_ylabel(r"Responsivity (A W$^{-1}$)")
 
 lines1, labels1 = ax.get_legend_handles_labels()
@@ -104,7 +114,7 @@ plt.savefig(output_dir / "spectra_2t.png")
 plt.savefig(output_dir / "spectra_2t.eps", format="EPS")
 plt.show()
 plt.close()
-print("Saved two-spectra figure")
+print("Saved two-spectra figure to", output_dir)
 
 # %% Figure 3: DREAM average electron temperature and plasma current time evolution
 

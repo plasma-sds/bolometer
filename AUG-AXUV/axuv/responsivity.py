@@ -35,15 +35,17 @@ DETECTOR_CALIBRATION_AMPER_PER_WATT: float = 0.27
 # Module-level cache — populated once on the first call
 _sensitivity: np.ndarray | None = None
 _degraded_sensitivity: np.ndarray | None = None
+_worst_estimation: np.ndarray | None = None
 
 
 def _load_responsivity() -> None:
     """Load the responsivity CSV files into the module cache (idempotent)."""
-    global _sensitivity, _degraded_sensitivity
+    global _sensitivity, _degraded_sensitivity, _worst_estimation
     if _sensitivity is not None:
         return
     _sensitivity = np.genfromtxt(_DATA_DIR / "axuv_sensitivity.csv", delimiter=",")
     _degraded_sensitivity = np.genfromtxt(_DATA_DIR / "degraded_sensitivity.csv", delimiter=",")
+    _worst_estimation = np.genfromtxt(_DATA_DIR / "worst_estimation.csv", delimiter=",")
 
 
 def sensitivity_function(where: np.ndarray | float) -> np.ndarray | float:
@@ -71,6 +73,18 @@ def degraded_sensitivity_function(where: np.ndarray | float) -> np.ndarray | flo
         np.interp(arr, _sensitivity[:, 0], _sensitivity[:, 1]),
         np.interp(arr, _degraded_sensitivity[:, 0], _degraded_sensitivity[:, 1]),
     )
+    return float(result[0]) if scalar else result
+
+
+def worst_sensitivity(where: np.ndarray | float) -> np.ndarray | float:
+    """
+    Worst estimated AXUV spectral responsivity [A/W] as a function of photon energy [eV].
+    """
+    _load_responsivity()
+    arr = np.atleast_1d(np.asarray(where, dtype=float))
+    scalar = np.ndim(where) == 0
+
+    result = np.interp(arr, _worst_estimation[:, 0], _worst_estimation[:, 1])
     return float(result[0]) if scalar else result
 
 
