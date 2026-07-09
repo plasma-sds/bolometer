@@ -90,7 +90,7 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
     t_thr = [shot_entry.get(str(thr), {}).get("exp") for thr in THRESHOLDS]
     if PLOT_THRESHOLD_LINES and all(t is not None for t in t_thr):
         for t, color in zip(t_thr, [firstcolor, secondcolor]):
-            ax.axvline(t, ls=":", color=color)
+            ax.axvline(t, ls="--", color=color, linewidth=2)
 
         ax_top = ax.twiny()
         ax_top.set_xlim(ax.get_xlim())

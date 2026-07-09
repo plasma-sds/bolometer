@@ -111,7 +111,7 @@ for shot in SHOTS:
             )
         else:
             ax.plot(
-                exp[:, 0], exp[:, 1], color=color, linestyle=":", label=f"{label} exp"
+                exp[:, 0], exp[:, 1], color=color, linestyle="--", label=f"{label} exp"
             )
 
     # Vertical lines at W_th thresholds
@@ -131,7 +131,7 @@ for shot in SHOTS:
             ax.axvline(
                 t_exp,
                 color=THRESHOLD_COLORS[i],
-                linestyle=":",
+                linestyle="--",
                 label=f"{label_str} exp",
             )
 
