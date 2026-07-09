@@ -45,7 +45,10 @@ def _load_responsivity() -> None:
         return
     _sensitivity = np.genfromtxt(_DATA_DIR / "axuv_sensitivity.csv", delimiter=",")
     _degraded_sensitivity = np.genfromtxt(_DATA_DIR / "degraded_sensitivity.csv", delimiter=",")
-    _worst_estimation = np.genfromtxt(_DATA_DIR / "worst_estimation.csv", delimiter=",")
+    try:  # This is not strictly necessary for 99% of the work
+        _worst_estimation = np.genfromtxt(_DATA_DIR / "worst_estimation.csv", delimiter=",")
+    except FileNotFoundError:
+        _worst_estimation = None
 
 
 def sensitivity_function(where: np.ndarray | float) -> np.ndarray | float:
