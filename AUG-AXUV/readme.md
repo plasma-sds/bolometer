@@ -21,7 +21,7 @@ dependency stacks, reflecting the two main use cases:
 
 
 ```
-AUG-AXUV/                          ← repo root (add this to sys.path)
+AUG-AXUV/                          ← repo root
 │
 ├── axuv/                          ← synthetic diagnostics package
 │   ├── __init__.py
@@ -83,7 +83,6 @@ AUG-AXUV/                          ← repo root (add this to sys.path)
 │   ├── vessel/, divertor/, …
 │
 ├── sightline_DREAMoutput_Ne_SPI.py  ← simple LOS model on DREAM SPI output
-├── requirements.txt
 └── pyproject.toml                 ← editable-install / packaging config
 ```
 
@@ -91,30 +90,29 @@ AUG-AXUV/                          ← repo root (add this to sys.path)
 
 ## Setup
 
-### On TOKI (IPP server) — full functionality
+Install both packages in editable mode from the repository root. This is the
+only supported install method and makes `axuv` and `axuv_measurement`
+importable from anywhere:
 
-```bash
-module load aug_sfutils
-source AUG-AXUV/.venv/bin/activate
-```
-
-Both packages are importable once the repo root is on `sys.path`.  The
-virtual environment contains all dependencies from `requirements.txt`; only
-`aug_sfutils` is loaded separately via the module system.
-
-### Elsewhere — synthetic package only
-
-```bash
-pip install -r requirements.txt   # installs Raysect, Cherab, h5py, …
-# aug_sfutils is not available outside IPP; axuv_measurement will not work
-```
-
-### Making the packages importable
-
-Neither package is installed via pip by default. Install with pip in editable mode from the main project directory:
 ```bash
 pip install -e .
 ```
+
+All runtime dependencies (Raysect, Cherab, h5py, …) are declared in
+`pyproject.toml` and pulled in automatically.
+
+### On TOKI (IPP server) — full functionality
+
+`axuv_measurement` additionally needs `aug_sfutils`, which is available only on
+the IPP TOKI server for users in the AUG group:
+
+```bash
+module load aug_sfutils
+pip install -e ".[measurement]"
+```
+
+Off IPP, only the synthetic `axuv` package is functional; `aug_sfutils` cannot
+be installed and `axuv_measurement` will not import.
 
 ---
 
@@ -264,13 +262,6 @@ CI environment.
 
 ```bash
 pytest tests/
-```
-
-To skip tests that require optional heavy dependencies (Raysect scene
-construction, CAD file access):
-
-```bash
-pytest tests/ -m "not integration"
 ```
 
 ---

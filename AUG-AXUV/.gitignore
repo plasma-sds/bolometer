@@ -2,7 +2,6 @@
 axuv/data/
 aug/
 output/
-plots/
 
 # Data files
 axuv/data/AXUV_LOS_geom.txt
