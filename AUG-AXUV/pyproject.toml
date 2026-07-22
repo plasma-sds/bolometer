@@ -5,19 +5,25 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aug-axuv"
 version = "0.1.0"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
-# Core dependencies for axuv (synthetic forward model)
+# Runtime dependencies shared by both shipped packages (axuv + axuv_measurement).
+# All are pip-installable on any platform; only aug_sfutils (below) is IPP-only.
 dependencies = [
     "raysect",
     "cherab",
     "numpy",
+    "scipy",
+    "pandas",
     "h5py",
     "matplotlib",
+    "shapely",
+    "scikit-image",   # axuv_measurement.processing ridge filter
+    "pillow",         # publications GIF/figure generation
 ]
 
 [project.optional-dependencies]
-# IPP-only experimental analysis stack
+# IPP-only experimental analysis stack (axuv_measurement shot-file access)
 measurement = [
     "aug_sfutils",
 ]
