@@ -84,7 +84,7 @@ _pct_str = "_".join(str(int(thr * 100)) for thr in THRESHOLDS) + "pct"
 
 # %% Plot
 for shot in SHOTS:
-    fig, ax = plt.subplots(figsize=(4.95, 5))
+    fig, ax = plt.subplots(figsize=(7, 4))
 
     t_start = START_TIMES[SHOTS.index(shot)]
     t_end = max(data[shot][var]["sim"][-1, 0] for var in VARIABLES)
@@ -140,10 +140,10 @@ for shot in SHOTS:
     ax.grid()
     ax.set_xlabel("Time [s]")
     # ax.set_title(f"\\#{shot}")
-    ax.legend(loc="lower left", bbox_to_anchor=(-0.1, 1.02), borderaxespad=0, ncols=2, fontsize="small")
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0, ncols=1)
 
     plt.savefig(output_dir / f"time_traces_{shot}_{_pct_str}.png", dpi=300, bbox_inches="tight")
     plt.savefig(
-        output_dir / f"time_traces_{shot}_{_pct_str}.eps", format="eps", bbox_inches="tight"
+        output_dir / f"time_traces_{shot}_{_pct_str}.pdf", format="PDF", bbox_inches="tight"
     )
     plt.show()

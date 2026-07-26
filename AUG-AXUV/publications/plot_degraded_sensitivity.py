@@ -49,16 +49,16 @@ combined_degraded[in_measured_range] = degraded_interp[in_measured_range]
 worst_estimation = nominal_interp.copy()
 worst_estimation[non_measured_range] = nominal_interp[non_measured_range] * 0.9
 # in the 4-10 eV range we suppose that the diodes can be "fully" blind
-in_fully_blind_range = (x_full >= 4.0) & (x_full <= 10.0)  
+in_fully_blind_range = (x_full >= 4.0) & (x_full <= 10.0)
 # in the 10-60 eV range we suppose that the diodes degraded significantly
 in_significantly_degraded_range = (x_full >= 10.0) & (x_full <= 60.0)
 
 worst_estimation[in_fully_blind_range] = 0.01  # A/W
 index_at_60eV = bisect.bisect_left(x_full, 60.0)
 worst_value_at_60eV = worst_estimation[index_at_60eV]
-# worst value at 10 eV is 0.01 A/W 
+# worst value at 10 eV is 0.01 A/W
 # incline (value at 60 eV - 0.01) / (60 - 10)
-# x_temp to start at 10 eV 
+# x_temp to start at 10 eV
 x_temp = x_full - 10.0
 incline = (worst_value_at_60eV - 0.01) / (60.0 - 10.0)
 worst_estimation[in_significantly_degraded_range] = 0.01 + incline * x_temp[in_significantly_degraded_range]
@@ -93,5 +93,5 @@ ax.set_xlim(1, )
 ax.legend(handles=[line1, line2, err2, line3], fontsize="small")
 
 plt.savefig(output_dir / "degraded_sensitivity.png", dpi=300, bbox_inches="tight")
-plt.savefig(output_dir / "degraded_sensitivity.eps", format="eps", bbox_inches="tight")
+plt.savefig(output_dir / "degraded_sensitivity.pdf", format="PDF", bbox_inches="tight")
 plt.show()

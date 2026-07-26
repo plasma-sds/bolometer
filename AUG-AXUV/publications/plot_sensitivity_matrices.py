@@ -116,8 +116,8 @@ for wavelength_bin in [0, 230]:
     ax.set_title(f"{wavelength_centers[wavelength_bin]:.2f} nm - {energy:.2f} eV")
 
     plt.savefig(
-        output_dir / f"sensitivity_map_{wavelength_bin}.eps",
-        format="eps",
+        output_dir / f"sensitivity_map_{wavelength_bin}.pdf",
+        format="PDF",
         bbox_inches="tight",
     )
     plt.savefig(

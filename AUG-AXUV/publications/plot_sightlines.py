@@ -18,7 +18,7 @@ from axuv_measurement.geometry import plot_qsurfaces
 # Set default plotting parameters
 set_plt_rcparams()
 
-savepath = PROJECT_ROOT / "output" / "sightline_comparison.eps"
+savepath = PROJECT_ROOT / "output" / "sightline_comparison.pdf"
 savepath_png = PROJECT_ROOT / "output" / "sightline_comparison.png"
 
 # Load AXUV geometry data and PFC component outlines
@@ -41,7 +41,7 @@ for line in gc_d_lines:
     ax.plot(line[0], line[1], lw=.5, c="k")
 
 plt.savefig(savepath_png, format='png', dpi=300, bbox_inches='tight')
-plt.savefig(savepath, format='eps', bbox_inches='tight')
+plt.savefig(savepath, format="PDF", bbox_inches='tight')
 
 plt.show()
 plt.close(fig)
@@ -58,7 +58,7 @@ _, _, equ = plot_qsurfaces(40673, 2.3)
 sep_Rz = sf.rho2rz(equ, 1, t_in=2.3, coord_in='rho_pol')
 sep = ax.plot(sep_Rz[0][0][0], sep_Rz[1][0][0], color="b", ls='--', lw=2, label='LCFS')
 
-# from the axuv_df panndas dataframe, take the R_start, z_start columns and R_end, z_end columns 
+# from the axuv_df panndas dataframe, take the R_start, z_start columns and R_end, z_end columns
 # for each row that has either D16 or DHT in "Cam" column and plot them
 for index, row in axuv_df.iterrows():
     if row["Cam"] == "D16":
@@ -75,7 +75,7 @@ for index, row in axuv_df.iterrows():
         ax.annotate("D16", (row["R_start"], row["z_start"]), color="r", ha='left', va='bottom', xytext=(15, 2), textcoords='offset points')
         annotated_D16 = True
     elif row["Cam"] == "DHT" and not annotated_DHT:
-        # Annotate the first sightline of DHT in black 
+        # Annotate the first sightline of DHT in black
         ax.annotate("DHT", (row["R_start"], row["z_start"]), color="k", ha='right', va='top', xytext=(0, -50), textcoords='offset points')
         annotated_DHT = True
 
@@ -93,11 +93,7 @@ ax.set_aspect('equal')
 
 plt.legend()
 savepath_png = PROJECT_ROOT / "output" / "sightlines_S16.png"
-savepath = PROJECT_ROOT / "output" / "sightlines_S16.eps"
+savepath = PROJECT_ROOT / "output" / "sightlines_S16.pdf"
 plt.savefig(savepath_png, format='png', dpi=300, bbox_inches='tight')
-plt.savefig(savepath, format='eps', bbox_inches='tight')
+plt.savefig(savepath, format="PDF", bbox_inches='tight')
 plt.show()
-
-
-
-

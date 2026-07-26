@@ -153,7 +153,7 @@ for (shot, sector, hi_v), r in results.items():
 
     fname = f"abs_diff_{shot}_{sector}_{hi_v}"
     fig.savefig(r["out_root"] / f"{fname}.png", dpi=300, bbox_inches="tight")
-    fig.savefig(r["out_root"] / f"{fname}.eps", format="eps", bbox_inches="tight")
+    fig.savefig(r["out_root"] / f"{fname}.pdf", format="PDF", bbox_inches="tight")
     plt.show()
 
 
@@ -229,5 +229,5 @@ for (shot, sector, hi_v), r in results.items():
 
     fname = f"rel_err_{shot}_{sector}_{hi_v}"
     fig.savefig(r["out_root"] / f"{fname}.png", dpi=300, bbox_inches="tight")
-    fig.savefig(r["out_root"] / f"{fname}.eps", format="eps", bbox_inches="tight")
+    fig.savefig(r["out_root"] / f"{fname}.pdf", format="PDF", bbox_inches="tight")
     plt.show()
