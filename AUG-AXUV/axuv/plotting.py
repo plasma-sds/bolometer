@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -10,18 +12,90 @@ from axuv.interpolation import (
 )
 
 
-def set_plt_rcparams():
-    """Sets the default matplotlib rcParams for LaTeX plotting in articles."""
+# Font enlargement factor of the diode time-evolution figures, which are
+# printed at a smaller size than the rest of the article figures.
+FONT_SCALE = 1.5
+
+
+def set_plt_rcparams(scale=1.0):
+    """Sets the default matplotlib rcParams for LaTeX plotting in articles.
+
+    :param scale: multiplier applied to the base font size, e.g. FONT_SCALE.
+    """
     plt.rcParams.update({
         "text.usetex": True,
         "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
         "font.family": "serif",  # tells matplotlib to use \rmfamily in the LaTeX doc
-        "font.size": 18,
+        "font.size": 18 * scale,
         "figure.dpi": 300,
         "figure.constrained_layout.use": True,
         "image.cmap": 'inferno',
         "lines.linewidth": 2,
     })
+
+
+def save_png_pdf(fig, path, **kwargs):
+    """Saves *fig* both as a PNG and as a PDF, next to each other.
+
+    :param path:   output path; its suffix is replaced by .png and .pdf
+    :param kwargs: forwarded to `Figure.savefig`
+    """
+    path = Path(path)
+    kwargs.setdefault("dpi", 300)
+    kwargs.setdefault("bbox_inches", "tight")
+    for suffix in (".png", ".pdf"):
+        fig.savefig(path.with_suffix(suffix), **kwargs)
+
+
+def add_direction_arrow(ax, orientation, pad=0.05):
+    """Draws a vertical arrow left of *ax*, pointing at a coordinate label.
+
+    The diode number axis of the time-evolution plots maps to a machine
+    coordinate: R for the vertical cameras (D16, DVC) and z for the horizontal
+    ones. The arrow marks the direction of that coordinate: it points down at
+    an "R" label at the bottom for the vertical cameras, and up at a "Z" label
+    at the top for the horizontal ones.
+
+    The arrow goes left of the y tick labels and of the y axis label, so their
+    placement has to be known; the figure is therefore drawn once here.
+
+    :param ax:          axis holding the pcolormesh
+    :param orientation: "vertical" or "horizontal" camera type
+    :param pad:         gap between the y axis label and the arrow, in units
+                        of the axis width
+    """
+    if orientation not in ("vertical", "horizontal"):
+        raise ValueError(
+            f"orientation must be 'vertical' or 'horizontal', got {orientation!r}"
+        )
+
+    fig = ax.figure
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    to_axes = ax.transAxes.inverted()
+    left = min(
+        to_axes.transform((artist.get_window_extent(renderer).x0, 0))[0]
+        for artist in [ax.yaxis.label, *ax.get_yticklabels()]
+    )
+    x = left - pad
+
+    if orientation == "vertical":
+        label, label_y, tail, tip = "R", 0.04, 0.99, 0.13
+    else:
+        label, label_y, tail, tip = "Z", 0.96, 0.01, 0.87
+
+    ax.annotate(
+        "", xy=(x, tip), xytext=(x, tail), xycoords="axes fraction",
+        annotation_clip=False,
+        arrowprops={
+            "arrowstyle": "-|>",
+            "color": "black",
+            "linewidth": plt.rcParams["lines.linewidth"],
+            "mutation_scale": plt.rcParams["font.size"],
+        },
+    )
+    ax.text(x, label_y, label, transform=ax.transAxes,
+            ha="center", va="center", clip_on=False)
 
 def plot_interpolated(interpolated, title="", cbarlabel="", gc_d_lines=None, show=True):
     """

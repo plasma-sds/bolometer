@@ -11,11 +11,12 @@ from axuv_measurement.config import (
     D16, DHT, DVC, DHC
 )
 from axuv.io import WTH_THRESHOLDS as THRESHOLDS
+from axuv.plotting import FONT_SCALE, add_direction_arrow, save_png_pdf
 from axuv_measurement.io import get_AXUV_signals, PROJECT_ROOT
 from axuv_measurement.plotting import set_plt_rcparams
 
 
-set_plt_rcparams()
+set_plt_rcparams(scale=FONT_SCALE)
 project_dir = PROJECT_ROOT
 
 # THRESHOLDS is defined centrally in axuv.io (WTH_THRESHOLDS).
@@ -78,13 +79,16 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
     plt.ylabel('Diode number')
     ax.set_xlabel("Time [s]")
 
+    # D16 and DVC look vertically and are marked with R, the horizontal ones with Z.
+    add_direction_arrow(ax, "vertical" if "vert" in camera else "horizontal")
+
     if save:
-        savename = str(shotno) + "_" + camera + "_notitle.png"
-        plt.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
+        savename = str(shotno) + "_" + camera + "_notitle"
+        save_png_pdf(fig, project_dir / "output" / str(shotno) / savename)
 
     firstcolor = "cyan"
     secondcolor = "lime"
-    labelsize = 16
+    labelsize = 16 * FONT_SCALE
 
     shot_entry = _threshold_times.get(str(shotno), {})
     t_thr = [shot_entry.get(str(thr), {}).get("exp") for thr in THRESHOLDS]
@@ -100,8 +104,8 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
         ax_top.spines['top'].set_visible(False)
         ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
 
-        savename = str(shotno) + "_" + camera + f"_{_pct_str}.png"
-        fig.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
+        savename = str(shotno) + "_" + camera + f"_{_pct_str}"
+        save_png_pdf(fig, project_dir / "output" / str(shotno) / savename)
 
     title_suffix = camera.replace("_", " ")
     if "vert" in title_suffix:
@@ -112,8 +116,8 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
     title = str(shotno) + " " + title_suffix
     plt.title(title)
     if save:
-        savename = str(shotno) + "_" + camera + ".png"
-        plt.savefig(project_dir / "output" / str(shotno) / savename, dpi=300, bbox_inches="tight")
+        savename = str(shotno) + "_" + camera
+        save_png_pdf(fig, project_dir / "output" / str(shotno) / savename)
 
     plt.show()
     plt.close(fig)

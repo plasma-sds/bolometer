@@ -27,13 +27,16 @@ from .geometry import (
 from .processing import ridge_filter, find_roots
 
 
-def set_plt_rcparams():
-    """Sets the default matplotlib rcParams for LaTeX plotting in articles."""
+def set_plt_rcparams(scale=1.0):
+    """Sets the default matplotlib rcParams for LaTeX plotting in articles.
+
+    :param scale: multiplier applied to the base font size, e.g. FONT_SCALE.
+    """
     plt.rcParams.update({
         "text.usetex": True,
         "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}",
         "font.family": "serif",  # tells matplotlib to use \rmfamily in the LaTeX doc
-        "font.size": 18,
+        "font.size": 18 * scale,
         "figure.dpi": 300,
         "figure.constrained_layout.use": True,
         "image.cmap": 'inferno',

@@ -21,6 +21,7 @@ Output tree
     diode_evolution.csv   — 2-D array (diodes × timesteps)
     times_ms.csv          — 1-D array of physical times [ms]
     diode_evolution.png   — log-normalised pcolormesh time-evolution plot
+    diode_evolution.pdf   — the same plot as a vector graphic
 
 Expected filename formats (defined in calculate_emissions_for_raytransfer.py)
 ------------------------------------------------------------------------------
@@ -45,7 +46,7 @@ import numpy as np
 
 from axuv.responsivity import get_weighted_power, DETECTOR_CALIBRATION_AMPER_PER_WATT
 from axuv.io import open_emission_data, load_etendue, WTH_THRESHOLDS
-from axuv.plotting import set_plt_rcparams
+from axuv.plotting import FONT_SCALE, add_direction_arrow, save_png_pdf, set_plt_rcparams
 
 
 # ── Filename pattern helpers ───────────────────────────────────────────────────
@@ -237,7 +238,7 @@ if __name__ == "__main__":
     import argparse
 
     # Set the standardized plotting parameters
-    set_plt_rcparams()
+    set_plt_rcparams(scale=FONT_SCALE)
 
     parser = argparse.ArgumentParser(
         description=(
@@ -410,7 +411,7 @@ if __name__ == "__main__":
                     shot=shot,
                 )
 
-                fig.savefig(out_dir / "diode_evolution.png", bbox_inches="tight")
+                save_png_pdf(fig, out_dir / "diode_evolution")
                 plt.close(fig)
 
             else:
@@ -440,13 +441,18 @@ if __name__ == "__main__":
                 ax1.set_facecolor("k")
                 ax2.set_facecolor("k")
 
-                fig1.savefig(out_dir / str(fname_prefix + "horiz_notitle.png"), dpi=300, bbox_inches="tight")
-                fig2.savefig(out_dir / str(fname_prefix + "vert_notitle.png"), dpi=300, bbox_inches="tight")
+                # Diodes 0-48 are the horizontal camera (marked with Z),
+                # diodes 48-96 the vertical one (marked with R).
+                add_direction_arrow(ax1, "horizontal")
+                add_direction_arrow(ax2, "vertical")
+
+                save_png_pdf(fig1, out_dir / str(fname_prefix + "horiz_notitle"))
+                save_png_pdf(fig2, out_dir / str(fname_prefix + "vert_notitle"))
 
                 if t_thresholds is not None and _pct_str is not None:
                     firstcolor = "cyan"
                     secondcolor = "lime"
-                    labelsize = 16
+                    labelsize = 16 * FONT_SCALE
                     for cur_ax in (ax1, ax2):
                         cur_ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
                         for t, color in zip(t_thresholds, [firstcolor, secondcolor]):
@@ -458,8 +464,8 @@ if __name__ == "__main__":
                         ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
                         ax_top.spines['top'].set_visible(False)
 
-                    fig1.savefig(out_dir / str(fname_prefix + f"horiz_{_pct_str}.png"), dpi=300, bbox_inches="tight")
-                    fig2.savefig(out_dir / str(fname_prefix + f"vert_{_pct_str}.png"), dpi=300, bbox_inches="tight")
+                    save_png_pdf(fig1, out_dir / str(fname_prefix + f"horiz_{_pct_str}"))
+                    save_png_pdf(fig2, out_dir / str(fname_prefix + f"vert_{_pct_str}"))
 
                 plt.close(fig1)
                 plt.close(fig2)
