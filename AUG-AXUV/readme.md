@@ -90,12 +90,18 @@ AUG-AXUV/                          ← repo root
 
 ## Setup
 
-Install both packages in editable mode from the repository root. This is the
+Install both packages in editable mode from the `AUG-AXUV` folder. This is the
 only supported install method and makes `axuv` and `axuv_measurement`
 importable from anywhere:
 
 ```bash
-pip install -e .
+pip install -e AUG-AXUV                # from bolometer/ root
+```
+
+or
+
+```bash
+cd AUG-AXUV && pip install -e .
 ```
 
 All runtime dependencies (Raysect, Cherab, h5py, …) are declared in
