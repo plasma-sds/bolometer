@@ -22,11 +22,12 @@ pubdir="$REPO_ROOT/publications"
 # Step 1: compute and cache threshold crossing times (also saves the time-trace figures)
 python "$pubdir/plot_time_traces.py"
 
-# Step 2: save the synthetic AXUV measurement figures (with W_th vertical lines)
+# Step 2: save the synthetic AXUV measurement figures (with W_th vertical lines),
+# on log and linear colour scales (linear files get a "_lin" suffix)
 # Sector 16
-python "$maindir/emission_to_measurement.py" "$datadir/40673/P1/output"
-python "$maindir/emission_to_measurement.py" "$datadir/41007/P1/output"
+python "$maindir/emission_to_measurement.py" "$datadir/40673/P1/output" --scale both
+python "$maindir/emission_to_measurement.py" "$datadir/41007/P1/output" --scale both
 
 # Sector 5
-python "$maindir/emission_to_measurement.py" "$datadir/40673/P45/output"
-python "$maindir/emission_to_measurement.py" "$datadir/41007/P45/output"
+python "$maindir/emission_to_measurement.py" "$datadir/40673/P45/output" --scale both
+python "$maindir/emission_to_measurement.py" "$datadir/41007/P45/output" --scale both

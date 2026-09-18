@@ -108,3 +108,15 @@ python axuv/emission_to_measurement.py axuv/data/40673/P1/output --thresholds 0.
 # No vertical lines (only the no-line figures are saved)
 python axuv/emission_to_measurement.py axuv/data/40673/P1/output --no-thresholds
 ```
+
+### Log and linear colour scales
+The diode time-evolution plots are drawn on a log colour scale by default. `--scale linear` or `--scale both` adds the linear version, saved next to the log figure with a `_lin` filename suffix. The wrapper script uses `--scale both`.
+The linear colour limits default to 0 and the maximum of each figure's data; `--lin-vmin` and `--lin-vmax` override them, as `--vmin` and `--vmax` do for the log scale.
+```bash
+# Log and linear figures
+python axuv/emission_to_measurement.py axuv/data/40673/P1/output --scale both
+
+# Linear only, with a fixed upper colour limit
+python axuv/emission_to_measurement.py axuv/data/40673/P1/output --scale linear --lin-vmax 5e7
+```
+For the experimental figures, `PLOT_SCALES` in `axuv_measurement/plotting_from_shotfiles.py` selects the scales, and the `limits` argument of `save_two_camera_plots` overrides the colour limits per scale, e.g. `limits={"linear": (0, 5e7)}`.

@@ -18,5 +18,6 @@ export MPLBACKEND="Agg"
 # Step 1: compute and cache threshold crossing times (also saves the time-trace figures)
 python "$REPO_ROOT/publications/plot_time_traces.py"
 
-# Step 2: save the experimental AXUV camera figures (with W_th vertical lines)
+# Step 2: save the experimental AXUV camera figures (with W_th vertical lines),
+# on the colour scales set by PLOT_SCALES (linear files get a "_lin" suffix)
 python "$REPO_ROOT/axuv_measurement/plotting_from_shotfiles.py"
