@@ -41,6 +41,7 @@ def save_png_pdf(fig, path, **kwargs):
     :param kwargs: forwarded to `Figure.savefig`
     """
     path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     kwargs.setdefault("dpi", 300)
     kwargs.setdefault("bbox_inches", "tight")
     for suffix in (".png", ".pdf"):
