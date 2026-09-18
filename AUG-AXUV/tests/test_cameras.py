@@ -72,6 +72,7 @@ def _make_mock_df(n_channels=48, R=1.8, phi=22.5, z=0.0):
             "chan":           ch,
             "alpha":          float(ch - n_channels // 2),  # spread around 0
             "d(Folie-Blende)": 0.05,
+            "f_Blende":       2.41449e-06,  # slit area (m^2), typical value from AXUV_LOS_geom.txt
             "RAW":            f"S1L0A{ch:02d}",
             # start and end points define the LOS direction
             "R_start":  R,
