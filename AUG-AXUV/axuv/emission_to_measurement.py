@@ -215,7 +215,7 @@ def plot_time_evolution(
         pass
 
     vmax = diode_data_evolution.max() if vmax is None else vmax
-    vmin = diode_data_evolution.min() if vmin is None else (vmax / 1e4)
+    vmin = vmax / 1e4 if vmin is None else vmin
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
     pcm = ax.pcolormesh(
