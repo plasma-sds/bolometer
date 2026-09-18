@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from matplotlib.colors import LogNorm, Normalize
 
+from axuv.emission_to_measurement import plot_time_evolution
 from axuv.plotting import (
     DEFAULT_LIMITS,
     SCALES,
@@ -108,3 +109,31 @@ def test_plot_draws_on_given_axis():
     fig, ax = plt.subplots()
     fig_out, ax_out, _ = plot_diode_evolution(times, data, ax=ax)
     assert fig_out is fig and ax_out is ax
+
+
+# ── plot_time_evolution with precomputed data ─────────────────────────────────
+@pytest.mark.parametrize("scale", SCALES)
+def test_time_evolution_honours_given_limits(scale):
+    times, data = _make_data()
+    _, _, pcm, _, _ = plot_time_evolution(
+        0, 48, [], None, vmin=1e3, vmax=5e7, scale=scale, data=data, times=times
+    )
+    assert (pcm.norm.vmin, pcm.norm.vmax) == (1e3, 5e7)
+
+
+def test_time_evolution_linear_defaults():
+    times, data = _make_data(peak=3e7)
+    _, _, pcm, _, _ = plot_time_evolution(
+        0, 48, [], None, scale="linear", data=data, times=times
+    )
+    assert (pcm.norm.vmin, pcm.norm.vmax) == (0.0, 3e7)
+
+
+def test_time_evolution_leaves_given_times_unchanged():
+    times, data = _make_data()
+    original = times.copy()
+    _, _, _, _, plot_times = plot_time_evolution(
+        0, 48, [], None, remove_offset=True, data=data, times=times
+    )
+    np.testing.assert_array_equal(times, original)
+    assert plot_times[0] == 0.0

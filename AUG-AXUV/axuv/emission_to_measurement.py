@@ -46,7 +46,13 @@ import numpy as np
 
 from axuv.responsivity import get_weighted_power, DETECTOR_CALIBRATION_AMPER_PER_WATT
 from axuv.io import open_emission_data, load_etendue, WTH_THRESHOLDS
-from axuv.plotting import FONT_SCALE, add_direction_arrow, save_png_pdf, set_plt_rcparams
+from axuv.plotting import (
+    FONT_SCALE,
+    add_direction_arrow,
+    plot_diode_evolution,
+    save_png_pdf,
+    set_plt_rcparams,
+)
 
 
 # ── Filename pattern helpers ───────────────────────────────────────────────────
@@ -150,11 +156,14 @@ def plot_time_evolution(
     vmax=None,
     remove_offset=False,
     shot=None,
+    scale="log",
+    data=None,
+    times=None,
 ):
     """
     Plots the time evolution of the synthetic measurement AXUV diode signals
-    with log normalisation.  Returns the figure, axis, pcolormesh object, and
-    the data as a 2-D array (diodes × time).
+    on a log or linear colour scale.  Returns the figure, axis, pcolormesh
+    object, the data as a 2-D array (diodes × time), and the plotted times.
 
     The user may add Gaussian noise with sigma=10% to simulate measurement
     uncertainty.  Either the manufacturer-specified or the degraded spectral
@@ -179,58 +188,47 @@ def plot_time_evolution(
         factor (mean=1, sigma=0.1) to simulate calibration uncertainty.
     degraded : bool
         If True, apply the degraded-diode responsivity curve.
-    plot : bool
-        If True (default) create and return the figure; otherwise return only
-        the data array.
     vmin : float
-        Lower colour-scale limit for the log-normalised pcolormesh.
+        Lower colour-scale limit.  Defaults to vmax / 1e4 on the log scale
+        and 0 on the linear scale.
     vmax : float
-        Upper colour-scale limit for the log-normalised pcolormesh.
+        Upper colour-scale limit.  Defaults to the maximum of the data.
     remove_offset : bool
         If True, remove the time offset from the time array to start from 0.
         If False, try to match the experimental time to the simulation time for `shot`
     shot : str
         AUG shotnumber for setting the starting time.
+    scale : str
+        Colour scale, "log" or "linear".
+    data, times : np.ndarray, optional
+        Precomputed output of calculate_time_evolution for the same diode
+        range.  If given, the emission files are not read again, so several
+        figures can show the same noise realisation.
 
     Returns
     -------
-    When plot=True  : fig, ax, pcm, diode_data_evolution
-    When plot=False : diode_data_evolution, times
+    fig, ax, pcm, diode_data_evolution, times
 
     NOTE: diode_first / diode_last follow the ordering in which cameras and
     their foil_detectors were appended when building the emission file.
     Use HDFView or h5py to inspect an unfamiliar file.
     """
-    diode_data_evolution, times = calculate_time_evolution(diode_first, diode_last, filenames, etendue, noise=noise, degraded=degraded)
-
-    if remove_offset:
-        times -= times[0]
-    elif shot == "40673":
-        times -= times[0]
-        times += 2.3276
-    elif shot == "41007":
-        times -= times[0]
-        times += 2.3417
+    if data is None:
+        diode_data_evolution, times = calculate_time_evolution(diode_first, diode_last, filenames, etendue, noise=noise, degraded=degraded)
     else:
-        pass
+        diode_data_evolution = data
 
-    vmax = diode_data_evolution.max() if vmax is None else vmax
-    vmin = vmax / 1e4 if vmin is None else vmin
+    # New arrays, so that precomputed times passed in are left unchanged
+    if remove_offset:
+        times = times - times[0]
+    elif shot == "40673":
+        times = times - times[0] + 2.3276
+    elif shot == "41007":
+        times = times - times[0] + 2.3417
 
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    pcm = ax.pcolormesh(
-        times,
-        range(1, diode_last - diode_first + 1),
-        diode_data_evolution,
-        norm="log",
-        vmin=vmin,
-        vmax=vmax,
-        cmap="inferno",
-        shading="nearest",
+    fig, ax, pcm = plot_diode_evolution(
+        times, diode_data_evolution, scale=scale, vmin=vmin, vmax=vmax
     )
-    ax.set_xlabel("Time [s]")
-    ax.set_ylabel("Diode number")
-    plt.colorbar(pcm, ax=ax, label=r"$I$ [W/m²]")
     return fig, ax, pcm, diode_data_evolution, times
 
 
