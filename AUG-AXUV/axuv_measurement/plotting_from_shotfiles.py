@@ -68,7 +68,8 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=1e4, vmax=1e8,
         Whether to remove the starting time offset from the time array.
     """
     if remove_offset:
-        time -= time[0]
+        # New array, so that the caller's time array is left unchanged
+        time = time - time[0]
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
     ax.set_facecolor('k')
