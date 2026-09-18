@@ -396,21 +396,35 @@ if __name__ == "__main__":
             if noise:
                 np.random.seed(_NOISE_SEED)
 
+            # Calculated once, so every figure and the csv share the same noise realisation
+            data_first, data_last = (0, 96) if two_plots else (diode_first, diode_last)
+            data, times = calculate_time_evolution(
+                data_first,
+                data_last,
+                filenames,
+                raytraced_etendue,
+                noise=noise,
+                degraded=degraded
+            )
+
             if not two_plots:
-                fig, ax, pcm, data, times = plot_time_evolution(
+                fig, ax, pcm, _, plot_times = plot_time_evolution(
                     diode_first,
                     diode_last,
                     filenames,
                     raytraced_etendue,
-                    noise=noise,
-                    degraded=degraded,
                     vmin=args.vmin,
                     vmax=args.vmax,
                     shot=shot,
+                    data=data,
+                    times=times,
                 )
 
                 save_png_pdf(fig, out_dir / "diode_evolution")
                 plt.close(fig)
+
+                # The single-plot csv keeps the shifted times it was saved with before
+                times = plot_times
 
             else:
 
@@ -419,22 +433,22 @@ if __name__ == "__main__":
                     48,
                     filenames,
                     raytraced_etendue,
-                    noise=noise,
-                    degraded=degraded,
                     vmin=args.vmin,
                     vmax=args.vmax,
                     shot=shot,
+                    data=data[0:48],
+                    times=times,
                 )
                 fig2, ax2, pcm2, data2, times2 = plot_time_evolution(
                     48,
                     96,
                     filenames,
                     raytraced_etendue,
-                    noise=noise,
-                    degraded=degraded,
                     vmin=args.vmin,
                     vmax=args.vmax,
                     shot=shot,
+                    data=data[48:96],
+                    times=times,
                 )
                 ax1.set_facecolor("k")
                 ax2.set_facecolor("k")
@@ -467,15 +481,6 @@ if __name__ == "__main__":
 
                 plt.close(fig1)
                 plt.close(fig2)
-
-                data, times = calculate_time_evolution(
-                    0,
-                    96,
-                    filenames,
-                    raytraced_etendue,
-                    noise=noise,
-                    degraded=degraded
-                )
 
             # Save the line integrated brightness evolution and times in one csv. First column is time in ms,
             # each subsequent column is the line integrated brightness of a diode at that time point
