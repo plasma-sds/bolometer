@@ -32,3 +32,8 @@ measurement = [
 # Auto-discovers axuv/ and axuv_measurement/ from repo root
 where = ["."]
 include = ["axuv*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
