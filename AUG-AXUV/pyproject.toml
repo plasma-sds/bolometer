@@ -7,6 +7,7 @@ name = "aug-axuv"
 version = "0.1.0"
 description = "Synthetic diagnostic and measurement analysis for the ASDEX Upgrade AXUV diode arrays"
 readme = "readme.md"
+authors = [{ name = "Ferenc Lengyel", email = "dev@lengyelf.eu" }]
 license = "MIT"
 # cherab 1.5 pins raysect 0.8.1 and numpy<2, which ship wheels only up to cp312.
 requires-python = ">=3.12,<3.13"
