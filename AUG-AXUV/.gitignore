@@ -1,6 +1,6 @@
-# Excluded directories
-axuv/data/
-aug/
+# Excluded directories. Data directories can be symlinks, so no trailing slash.
+/axuv/data
+/aug
 output/
 *plots/
 other/
