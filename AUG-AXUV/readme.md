@@ -60,7 +60,7 @@ AUG-AXUV/                          ← repo root
 │   ├── test_cameras.py              server required)
 │   ├── test_geometry.py
 │   ├── test_interpolation.py
-│   └── test_plasma.py
+│   └── test_plotting.py
 │
 ├── publications/                  ← figure-generating scripts for the paper
 │   ├── plot_time_traces.py        ← W_th time traces; writes
@@ -90,35 +90,84 @@ AUG-AXUV/                          ← repo root
 
 ## Setup
 
-Install both packages in editable mode from the `AUG-AXUV` folder. This is the
-only supported install method and makes `axuv` and `axuv_measurement`
-importable from anywhere:
+### Prerequisites
+
+- Linux (Cherab requirement).
+- Python 3.12. Cherab 1.5 requires Raysect 0.8.1 and NumPy < 2, which have no wheels for newer Python versions, so `requires-python` is capped at `<3.13`.
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip.
+
+### Install with uv (recommended)
+
+`uv.lock` pins the tested dependency set. From the `AUG-AXUV` folder:
 
 ```bash
-pip install -e AUG-AXUV                # from bolometer/ root
+cd AUG-AXUV
+uv sync                          # creates .venv with Python 3.12, installs locked deps + pytest
+source .venv/bin/activate
 ```
 
-or
+`uv sync` downloads Python 3.12 if it is not available on the system. Add `--extra measurement` to include `aug_sfutils`.
+
+### Install with pip
+
+pip ignores `uv.lock` and resolves within the bounds in `pyproject.toml`. Create the environment with a Python 3.12 interpreter:
 
 ```bash
-cd AUG-AXUV && pip install -e .
+cd AUG-AXUV
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -e .                 # add ".[measurement]" for aug_sfutils
+pip install pytest               # the dev group in pyproject.toml is not installed by pip install -e
 ```
 
-All runtime dependencies (Raysect, Cherab, h5py, …) are declared in
-`pyproject.toml` and pulled in automatically.
+Both methods install `axuv` and `axuv_measurement` in editable mode, which is the only supported install method: the packages read their data files relative to the source tree, and the data is not included in a built wheel.
 
-### On TOKI (IPP server) — full functionality
+### Atomic data (Cherab / OpenADAS)
 
-`axuv_measurement` additionally needs `aug_sfutils`, which is available only on
-the IPP TOKI server for users in the AUG group:
+Stage 2 and `sightline_DREAMoutput_Ne_SPI.py` evaluate emission with `cherab.openadas.OpenADAS`, which reads a local atomic-data repository (`~/.cherab/openadas/`). Populate it once per user after installing:
 
 ```bash
-module load aug_sfutils
-pip install -e ".[measurement]"
+python -c "from cherab.openadas.repository import populate; populate()"
 ```
 
-Off IPP, only the synthetic `axuv` package is functional; `aug_sfutils` cannot
-be installed and `axuv_measurement` will not import.
+This downloads the default OpenADAS rate data. For Ne 9+ lines, see the note under [Notes and caveats](#notes-and-caveats).
+
+### Data files
+
+The input data is not tracked in git (`axuv/data/` and `aug/` are gitignored). Fetching it will be handled by [plasmasds_utility](https://github.com/plasma-sds/plasmasds_utility), which is not yet wired in; until then, the files have to be copied in by hand. Required locations:
+
+| Path | Contents | Used by |
+|---|---|---|
+| `axuv/data/AXUV_LOS_geom.txt` | diode and aperture geometry | `axuv.io`, camera setup (all stages) |
+| `axuv/data/gc_d_lines.obj` | poloidal cross-section outline | `axuv.io`, plotting, tests |
+| `axuv/data/axuv_sensitivity.csv`, `degraded_sensitivity.csv`, `worst_estimation.csv` | AXUV diode responsivity curves | `axuv.responsivity` (Stage 3) |
+| `axuv/data/<shot>/<phase>/input/` | JOREK output files | Stage 1 (`--jorek-file` masking), Stage 2 |
+| `axuv/data/raytransfer_*.h5` | geometry matrices produced by Stage 1 | Stage 2 |
+| `aug/vessel/`, `aug/divertor/`, … | AUG vessel CAD meshes (`.rsm`) | Stage 1 with `--reflections` |
+
+### Environment variables
+
+`axuv.io` reads two optional variables, set by the SLURM scripts in `axuv/shell_scripts/`:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `datadir` | `axuv/data` | root of the data directory |
+| `currentdir` | unset | dataset subdirectory, e.g. `40673/P1`; outputs go to `$datadir/$currentdir/output/` |
+
+If `currentdir` is unset, the derived output path contains a literal `None` directory, so set it before running Stage 2 (`calculate_emissions_for_raytransfer.py`), which writes to that path:
+
+```bash
+export datadir="$PWD/axuv/data"
+export currentdir="40673/P1"
+```
+
+The scripts in `axuv/shell_scripts/` hardcode the server path of the checkout in `maindir`; adjust it before use. The parallel submission scripts also need GNU `parallel`.
+
+### `aug_sfutils` and shotfile access
+
+`axuv_measurement` needs `aug_sfutils`, installed from PyPI by the `measurement` extra. The package installs anywhere, but reading AUG shotfiles requires access to the AUG shotfile system, available on the IPP TOKI cluster to members of the AUG group. Without it, only the synthetic `axuv` package is functional.
+
+On TOKI, `module load aug_sfutils` provides the IPP-maintained build instead. A virtual environment only sees module-provided packages if it was created with `--system-site-packages`; otherwise use the `measurement` extra.
 
 ---
 
@@ -263,8 +312,8 @@ am.plot_current(41000, start=2.3, end=2.45)
 ## Tests
 
 Tests live in `tests/` and cover the `axuv` synthetic package only; they
-require Raysect and Cherab but **not** `aug_sfutils`, so they can run in any
-CI environment.
+require Raysect and Cherab but **not** `aug_sfutils`. Some tests load files from
+`axuv/data/` (e.g. `gc_d_lines.obj`), so the data files must be in place.
 
 ```bash
 pytest tests/
@@ -274,8 +323,8 @@ pytest tests/
 
 ## Notes and caveats
 
-- `aug_sfutils` is available only on the IPP TOKI server to users in the AUG
-  group.  All `axuv_measurement` functionality is therefore IPP-only.
+- Reading shotfiles with `aug_sfutils` requires AUG shotfile access (IPP TOKI,
+  AUG group), so `axuv_measurement` is effectively IPP-only.
 - The synthetic `axuv` package requires the AXUV diode geometry data and
   JOREK plasma input; reflection calculations additionally require access to
   the AUG vessel CAD files.
