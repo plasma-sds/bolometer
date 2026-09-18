@@ -97,6 +97,80 @@ def add_direction_arrow(ax, orientation, pad=0.05):
     ax.text(x, label_y, label, transform=ax.transAxes,
             ha="center", va="center", clip_on=False)
 
+
+# Colour scales of the diode time-evolution plots, passed to pcolormesh as norm.
+SCALES = ("log", "linear")
+
+# Default (vmin, vmax) colour limits per scale for the line integrated
+# brightness [W/m²]. None means the limit is taken from the plotted data.
+DEFAULT_LIMITS = {"log": (1e4, 1e8), "linear": (0.0, None)}
+
+
+def scale_suffix(scale):
+    """Returns the filename suffix of a colour scale: none for log, "_lin" for linear.
+
+    Log figures keep their original names, as those are referenced in publications.
+    """
+    return "" if scale == "log" else "_lin"
+
+
+def resolve_color_limits(data, scale, vmin=None, vmax=None):
+    """Returns the (vmin, vmax) colour limits of a diode time-evolution plot.
+
+    A missing vmax is the maximum of *data*. A missing vmin is vmax / 1e4 on
+    the log scale (four decades) and 0 on the linear scale.
+
+    :param data:  plotted values, NaNs are ignored
+    :param scale: "log" or "linear"
+    :param vmin:  lower colour limit, or None for the default
+    :param vmax:  upper colour limit, or None for the default
+    """
+    if scale not in SCALES:
+        raise ValueError(f"scale must be one of {SCALES}, got {scale!r}")
+    if vmax is None:
+        vmax = float(np.nanmax(data))
+    if vmin is None:
+        vmin = vmax / 1e4 if scale == "log" else 0.0
+    return vmin, vmax
+
+
+def plot_diode_evolution(times, data, scale="log", vmin=None, vmax=None,
+                         ax=None, cmap="inferno", cbar_label=r"$I$ [W/m²]"):
+    """Plots diode signals as a pcolormesh of time (x) and diode number (y).
+
+    :param times:      1-D time array [s]
+    :param data:       2-D array (diodes × times)
+    :param scale:      colour scale, "log" or "linear"
+    :param vmin, vmax: colour limits, see `resolve_color_limits` for the defaults
+    :param ax:         axis to draw on, a new figure is created if None
+    :param cmap:       colour map
+    :param cbar_label: colour bar label
+    :return:           fig, ax, pcm
+    """
+    vmin, vmax = resolve_color_limits(data, scale, vmin, vmax)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+    else:
+        fig = ax.figure
+
+    pcm = ax.pcolormesh(
+        times,
+        np.arange(1, data.shape[0] + 1),
+        data,
+        norm=scale,
+        vmin=vmin,
+        vmax=vmax,
+        cmap=cmap,
+        shading="nearest",
+    )
+    cbar = fig.colorbar(pcm, ax=ax, label=cbar_label)
+    if scale == "linear":
+        # Show a common ×10^n factor instead of long tick labels
+        cbar.formatter.set_powerlimits((0, 0))
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Diode number")
+    return fig, ax, pcm
+
 def plot_interpolated(interpolated, title="", cbarlabel="", gc_d_lines=None, show=True):
     """
     Plots interpolated values along with the contours of plasma facing components.
