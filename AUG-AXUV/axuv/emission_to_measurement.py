@@ -22,6 +22,7 @@ Output tree
     times_ms.csv          — 1-D array of physical times [ms]
     diode_evolution.png   — log-normalised pcolormesh time-evolution plot
     diode_evolution.pdf   — the same plot as a vector graphic
+    diode_evolution_lin.* — the same plots on a linear colour scale (--scale linear/both)
 
 Expected filename formats (defined in calculate_emissions_for_raytransfer.py)
 ------------------------------------------------------------------------------
@@ -47,10 +48,13 @@ import numpy as np
 from axuv.responsivity import get_weighted_power, DETECTOR_CALIBRATION_AMPER_PER_WATT
 from axuv.io import open_emission_data, load_etendue, WTH_THRESHOLDS
 from axuv.plotting import (
+    DEFAULT_LIMITS,
     FONT_SCALE,
+    SCALES,
     add_direction_arrow,
     plot_diode_evolution,
     save_png_pdf,
+    scale_suffix,
     set_plt_rcparams,
 )
 
@@ -268,18 +272,39 @@ if __name__ == "__main__":
         help="Last diode index to include (0-based, exclusive). Defaults to all diodes.",
     )
     parser.add_argument(
+        "--scale",
+        choices=(*SCALES, "both"),
+        default="log",
+        help="Colour scale of the plots. 'both' saves a log and a linear version; "
+        "the linear figures get a '_lin' filename suffix.",
+    )
+    parser.add_argument(
         "--vmin",
         type=float,
-        default=1e4,
+        default=DEFAULT_LIMITS["log"][0],
         metavar="V",
         help="Colour-scale lower limit for the log-normalised plot of the line integrated brightness.",
     )
     parser.add_argument(
         "--vmax",
         type=float,
-        default=1e8,
+        default=DEFAULT_LIMITS["log"][1],
         metavar="V",
         help="Colour-scale upper limit for the log-normalised plot of the line integrated brightness.",
+    )
+    parser.add_argument(
+        "--lin-vmin",
+        type=float,
+        default=DEFAULT_LIMITS["linear"][0],
+        metavar="V",
+        help="Colour-scale lower limit for the linear plot of the line integrated brightness.",
+    )
+    parser.add_argument(
+        "--lin-vmax",
+        type=float,
+        default=DEFAULT_LIMITS["linear"][1],
+        metavar="V",
+        help="Colour-scale upper limit for the linear plot. Defaults to the maximum of each figure's data.",
     )
     parser.add_argument(
         "--thresholds",
@@ -349,6 +374,12 @@ if __name__ == "__main__":
     title_prefix = shot + " " + sector
     fname_prefix = shot + "_" + sector + "_"
 
+    scales = SCALES if args.scale == "both" else (args.scale,)
+    limits = {
+        "log": (args.vmin, args.vmax),
+        "linear": (args.lin_vmin, args.lin_vmax),
+    }
+
     thresholds = None if args.no_thresholds else args.thresholds
     _pct_str = None
     t_thresholds = None
@@ -407,35 +438,37 @@ if __name__ == "__main__":
                 degraded=degraded
             )
 
-            if not two_plots:
-                fig, ax, pcm, _, plot_times = plot_time_evolution(
-                    diode_first,
-                    diode_last,
-                    filenames,
-                    raytraced_etendue,
-                    vmin=args.vmin,
-                    vmax=args.vmax,
-                    shot=shot,
-                    data=data,
-                    times=times,
-                )
+            for scale in scales:
+                vmin, vmax = limits[scale]
+                suffix = scale_suffix(scale)
 
-                save_png_pdf(fig, out_dir / "diode_evolution")
-                plt.close(fig)
+                if not two_plots:
+                    fig, ax, pcm, _, plot_times = plot_time_evolution(
+                        diode_first,
+                        diode_last,
+                        filenames,
+                        raytraced_etendue,
+                        vmin=vmin,
+                        vmax=vmax,
+                        shot=shot,
+                        scale=scale,
+                        data=data,
+                        times=times,
+                    )
 
-                # The single-plot csv keeps the shifted times it was saved with before
-                times = plot_times
-
-            else:
+                    save_png_pdf(fig, out_dir / f"diode_evolution{suffix}")
+                    plt.close(fig)
+                    continue
 
                 fig1, ax1, pcm1, data1, times1 = plot_time_evolution(
                     0,
                     48,
                     filenames,
                     raytraced_etendue,
-                    vmin=args.vmin,
-                    vmax=args.vmax,
+                    vmin=vmin,
+                    vmax=vmax,
                     shot=shot,
+                    scale=scale,
                     data=data[0:48],
                     times=times,
                 )
@@ -444,9 +477,10 @@ if __name__ == "__main__":
                     96,
                     filenames,
                     raytraced_etendue,
-                    vmin=args.vmin,
-                    vmax=args.vmax,
+                    vmin=vmin,
+                    vmax=vmax,
                     shot=shot,
+                    scale=scale,
                     data=data[48:96],
                     times=times,
                 )
@@ -458,8 +492,8 @@ if __name__ == "__main__":
                 add_direction_arrow(ax1, "horizontal")
                 add_direction_arrow(ax2, "vertical")
 
-                save_png_pdf(fig1, out_dir / str(fname_prefix + "horiz_notitle"))
-                save_png_pdf(fig2, out_dir / str(fname_prefix + "vert_notitle"))
+                save_png_pdf(fig1, out_dir / str(fname_prefix + f"horiz_notitle{suffix}"))
+                save_png_pdf(fig2, out_dir / str(fname_prefix + f"vert_notitle{suffix}"))
 
                 if t_thresholds is not None and _pct_str is not None:
                     firstcolor = "cyan"
@@ -476,11 +510,15 @@ if __name__ == "__main__":
                         ax_top.tick_params(direction='out', length=5, colors='black', labelsize=labelsize)
                         ax_top.spines['top'].set_visible(False)
 
-                    save_png_pdf(fig1, out_dir / str(fname_prefix + f"horiz_{_pct_str}"))
-                    save_png_pdf(fig2, out_dir / str(fname_prefix + f"vert_{_pct_str}"))
+                    save_png_pdf(fig1, out_dir / str(fname_prefix + f"horiz_{_pct_str}{suffix}"))
+                    save_png_pdf(fig2, out_dir / str(fname_prefix + f"vert_{_pct_str}{suffix}"))
 
                 plt.close(fig1)
                 plt.close(fig2)
+
+            # The single-plot csv keeps the shifted times it was saved with before
+            if not two_plots:
+                times = plot_times
 
             # Save the line integrated brightness evolution and times in one csv. First column is time in ms,
             # each subsequent column is the line integrated brightness of a diode at that time point
