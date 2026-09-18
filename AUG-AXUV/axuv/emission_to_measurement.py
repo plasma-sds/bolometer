@@ -21,8 +21,7 @@ Output tree
     diode_evolution.csv   — 2-D array (diodes × timesteps)
     times_ms.csv          — 1-D array of physical times [ms]
     diode_evolution.png   — log-normalised pcolormesh time-evolution plot
-    diode_evolution.pdf   — the same plot as a vector graphic
-    diode_evolution_lin.* — the same plots on a linear colour scale (--scale linear/both)
+    diode_evolution_lin.png — the same plot on a linear colour scale (--scale linear/both)
 
 Expected filename formats (defined in calculate_emissions_for_raytransfer.py)
 ------------------------------------------------------------------------------

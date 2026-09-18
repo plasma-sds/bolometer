@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from matplotlib.collections import PatchCollection
+from matplotlib.collections import PatchCollection, QuadMesh
 from matplotlib.patches import Rectangle
 
 from axuv.geometry import point3d_to_rz
@@ -34,17 +34,24 @@ def set_plt_rcparams(scale=1.0):
     })
 
 
-def save_png_pdf(fig, path, **kwargs):
-    """Saves *fig* both as a PNG and as a PDF, next to each other.
+def save_png_pdf(fig, path, pdf=None, **kwargs):
+    """Saves *fig* as a PNG and, for figures without a pcolormesh, also as a PDF.
+
+    A pcolormesh is written to PDF as one vector patch per cell, which gives
+    large, slow files with no gain over the 300 DPI PNG.
 
     :param path:   output path; its suffix is replaced by .png and .pdf
+    :param pdf:    True or False forces the PDF on or off; None skips it for
+                   figures that contain a pcolormesh
     :param kwargs: forwarded to `Figure.savefig`
     """
+    if pdf is None:
+        pdf = not any(isinstance(c, QuadMesh) for ax in fig.axes for c in ax.collections)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     kwargs.setdefault("dpi", 300)
     kwargs.setdefault("bbox_inches", "tight")
-    for suffix in (".png", ".pdf"):
+    for suffix in (".png", ".pdf") if pdf else (".png",):
         fig.savefig(path.with_suffix(suffix), **kwargs)
 
 
