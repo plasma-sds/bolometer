@@ -66,6 +66,20 @@ nice -n 5 taskset -c 20-29 python axuv/raytransfer_sensitivity.py --sectors S5 -
 nice -n 5 taskset -c 30-39 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10 --resolution-r 120 --resolution-z 220 --reflections -o axuv/data/raytransfer_S16_highres_refl.h5
 ```
 
+## Emissions (stage 2) on a local machine
+
+`run_emissions_local.sh` is the local counterpart of `parallel_submit_raytransfer.sh`. It runs `calculate_emissions_for_raytransfer.py` on every JOREK file in `axuv/data/<shot>/<plane>/input/` for the four datasets, P1 with the S16 matrix and P45 with the S5 matrix. The argument selects the lowres matrix variant, `raytransfer_<sector>_norefl.h5` or `raytransfer_<sector>_refl.h5`.
+```bash
+axuv/shell_scripts/run_emissions_local.sh norefl 8
+axuv/shell_scripts/run_emissions_local.sh refl 8
+```
+- The second argument is the number of parallel jobs (default 8). Each process peaks at about 1.7 GB of memory, so size it by free memory.
+- Results go to `axuv/data/<shot>/<plane>/output/emissions_<variant>_lowres_masked_<time>.h5`, logs to `stdout/output_<variant>_<file>.txt`.
+- The neon rates come from the Cherab OpenADAS repository in `~/.cherab`. If it lacks the Ne data, every run fails with `Requested PEC rate ... is not available`; copy the repository from a machine where it is populated, or populate it as described in the main readme.
+- With 8 jobs, one variant takes about 30 min for all 402 files on a 16-core laptop.
+
+Afterwards, `plot_and_save_synthetic_measurements.sh` (below) processes every variant found in the `output/` directories.
+
 ## Threshold-related plotting (W_th vertical lines)
 
 The fractional `W_th` levels at which vertical lines are drawn are defined in a
