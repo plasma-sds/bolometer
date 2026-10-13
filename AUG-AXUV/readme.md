@@ -152,6 +152,8 @@ Private data needs an SSH key accepted by the data server (`plasmasds_utility.se
 Local copies are kept in `<data dir>/bolometer/{private,public}/aug-axuv/<key>`, by default under `~/.local/share/plasmasds/`.
 Data copied by hand into the old layout (`axuv/data/` and `aug/`) is placed at the local paths of its keys with `python -m axuv.migrate_data` (hard links, no extra disk space; `--dry-run` shows the mapping, `--copy` copies instead).
 
+Local copies are uploaded to the server with `python -m axuv.publish_data <key prefixes>`, e.g. `python -m axuv.publish_data geometry jorek/40673` (`--dry-run` lists the files). Keys already on the server are skipped; `--replace VERSION` replaces them and keeps the old files as `archive/VERSION/<key>`. Uploads need SSH access, also for public data.
+
 The Stage 1 `--jorek-file` and the Stage 2 input file are paths; print the local path of a key with:
 
 ```bash
