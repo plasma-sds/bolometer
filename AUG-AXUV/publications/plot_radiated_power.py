@@ -34,7 +34,8 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
-from axuv.io import OUTPUT_DIR, PROJECT_ROOT, gc_d_lines, open_emission_data
+from axuv.datafiles import data_path
+from axuv.io import OUTPUT_DIR, PROJECT_ROOT, load_gc_d_lines, open_emission_data
 from axuv.plotting import plot_sensitivity_map, set_plt_rcparams
 from axuv.responsivity import get_weighted_power
 
@@ -42,7 +43,6 @@ from axuv.responsivity import get_weighted_power
 set_plt_rcparams()
 
 project_dir = PROJECT_ROOT
-data_dir = project_dir / "axuv" / "data"
 
 # An output directory can hold several emission variants
 # (emissions_{refl|norefl}_{low|high}res[_masked]_<time>.h5) with overlapping
@@ -55,7 +55,7 @@ VARIANT = "refl_lowres_masked"
 # The ray-transfer file only supplies the voxel grid geometry here; radiated
 # power per voxel is a plasma-only quantity, so a single (sector-independent)
 # grid is enough.  Its resolution must match VARIANT (lowres here).
-RAYTRANSFER_PATH = data_dir / "raytransfer_S16_reflections_lowres.h5"
+RAYTRANSFER_PATH = data_path("raytransfer/raytransfer_S16_refl.h5")
 
 # discharge -> (directory of emissions_*.h5, absolute start time [s])
 # Start times mirror plot_time_traces.py / emission_to_measurement.py.
@@ -232,7 +232,7 @@ for shot, (emissions_dir, start_time) in SHOTS.items():
             ax, im = plot_sensitivity_map(
                 ax, grid_centres, voxel_map, values, vmin=vmin, vmax=vmax
             )
-            plot_PFCs(ax, gc_d_lines)
+            plot_PFCs(ax, load_gc_d_lines())
             plt.colorbar(im, ax=ax, label=mode_cbar_label(mode))
             ax.set_xlabel("R [m]")
             ax.set_ylabel("z [m]")

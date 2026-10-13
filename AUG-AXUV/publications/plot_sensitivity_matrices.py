@@ -1,16 +1,14 @@
 # %%
-import pickle
-from pathlib import Path
 
 import h5py
 import matplotlib.pyplot as plt
 
 from axuv.cameras import WAVELENGTH_BIN_EDGES
-from axuv.io import OUTPUT_DIR, _GC_LINES_PATH, PROJECT_ROOT
+from axuv.datafiles import data_path
+from axuv.io import OUTPUT_DIR, PROJECT_ROOT, load_gc_d_lines
 from axuv.plotting import plot_sensitivity_map, set_plt_rcparams
 
 project_dir = PROJECT_ROOT
-data_dir = project_dir / "axuv" / "data"
 
 wavelength_centers = (WAVELENGTH_BIN_EDGES[:-1] + WAVELENGTH_BIN_EDGES[1:]) / 2
 
@@ -18,8 +16,7 @@ wavelength_centers = (WAVELENGTH_BIN_EDGES[:-1] + WAVELENGTH_BIN_EDGES[1:]) / 2
 set_plt_rcparams()
 figsize = (5, 6)  # Since we use imshow, we need to set a figure size explicitly
 
-with open(_GC_LINES_PATH, "rb") as fp:
-    gc_d_lines = pickle.load(fp)
+gc_d_lines = load_gc_d_lines()
 
 
 def plot_PFCs(ax, gc_d_lines, linewidth=0.5, color="white", linestyle="-"):
@@ -63,8 +60,8 @@ def make_gif(image_dir, pattern, output_path, duration=100, scale=0.5):
 
 
 RAYTRANSFER_PATHS = [
-    data_dir / "raytransfer_S16_refl.h5",
-    data_dir / "raytransfer_S5_refl.h5",
+    data_path("raytransfer/raytransfer_S16_refl.h5"),
+    data_path("raytransfer/raytransfer_S5_refl.h5"),
 ]
 
 print(f"Project root: {project_dir}")

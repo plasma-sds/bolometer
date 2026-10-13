@@ -1,15 +1,13 @@
 import os
 import pickle
+from functools import cache
 from pathlib import Path
 
 import h5py
 import pandas as pd
 import numpy as np
 
-DATADIR_ENV = os.environ.get("datadir")
-if DATADIR_ENV is None:
-    DATADIR_ENV = str(Path(__file__).parent) + "/data"
-DATADIR = str(DATADIR_ENV) + "/"
+from axuv.datafiles import data_path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -27,35 +25,40 @@ def emissions_output_dir(dataset: str) -> Path:
     """Return the Stage 2 output directory of *dataset* (e.g. '40673/P1')."""
     return OUTPUT_DIR / dataset / "emissions"
 
-# Loading diode geometry data into a pandas DataFrame for easier filtering
-AXUV_DATAFILE = DATADIR + "AXUV_LOS_geom.txt"
+
+# Diode and aperture geometry, one row per diode (data key, see axuv.datafiles)
+AXUV_GEOMETRY_KEY = "geometry/AXUV_LOS_geom.txt"
 
 
 def load_axuv_df() -> pd.DataFrame:
     """Load and return the AXUV diode geometry DataFrame."""
+    path = data_path(AXUV_GEOMETRY_KEY)
     try:
-        df = pd.read_csv(AXUV_DATAFILE, sep=r"\s+", engine="python").drop(
+        df = pd.read_csv(path, sep=r"\s+", engine="python").drop(
             columns=["act", "con", "F", "Foil_ID", "R_Kabel", "U_Gen.", "Faktor"]
         )
-        print(f"Loaded AXUV geometry datafile '{AXUV_DATAFILE}' with shape {df.shape}")
+        print(f"Loaded AXUV geometry datafile '{path}' with shape {df.shape}")
         return df
 
     except Exception as e:
         raise RuntimeError(
-            f"Could not load AXUV geometry datafile '{AXUV_DATAFILE}': {e}"
+            f"Could not load AXUV geometry datafile '{path}': {e}"
         ) from e
 
 
-# Plasma-facing component contours for poloidal-plane plots
-# Using Path(__file__).parent ensures this works regardless of CWD
-_GC_LINES_PATH = Path(__file__).parent / "data" / "gc_d_lines.obj"
-with open(_GC_LINES_PATH, "rb") as fp:
-    gc_d_lines = pickle.load(fp)
+@cache
+def load_gc_d_lines() -> list:
+    """Return the plasma-facing component contours for poloidal-plane plots.
+
+    Loaded on first call and cached; each item is an (R, z) pair of arrays.
+    """
+    with open(data_path("geometry/gc_d_lines.obj"), "rb") as fp:
+        return pickle.load(fp)
 
 
 # ── HDF5 data-loading helpers ─────────────────────────────────────────────────
 def load_etendue(sector: str):
-    etendue_path = DATADIR_ENV + f"/etendue_{sector}.h5"
+    etendue_path = data_path(f"geometry/etendue_{sector}.h5")
     with h5py.File(etendue_path, "r") as h5f:
         raytraced_etendue = np.asarray(h5f["raytraced_etendue"])
         raytraced_error = np.asarray(h5f["raytraced_error"])
