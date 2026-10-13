@@ -150,6 +150,8 @@ The code names each file by its *data key*, the path below `aug-axuv/`, and gets
 `DATA_TREES` in `axuv/datafiles.py` maps the first folder of a key to its tree.
 Private data needs an SSH key accepted by the data server (`plasmasds_utility.set_ssh_key`); public data is downloaded over HTTPS.
 Local copies are kept in `<data dir>/bolometer/{private,public}/aug-axuv/<key>`, by default under `~/.local/share/plasmasds/`.
+Data copied by hand into the old layout (`axuv/data/` and `aug/`) is placed at the local paths of its keys with `python -m axuv.migrate_data` (hard links, no extra disk space; `--dry-run` shows the mapping, `--copy` copies instead).
+
 The Stage 1 `--jorek-file` and the Stage 2 input file are paths; print the local path of a key with:
 
 ```bash
