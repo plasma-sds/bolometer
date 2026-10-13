@@ -9,7 +9,7 @@ from matplotlib.ticker import MaxNLocator
 from axuv_measurement.config import (
     D16, DHT, DVC, DHC
 )
-from axuv.io import WTH_THRESHOLDS as THRESHOLDS
+from axuv.io import OUTPUT_DIR, WTH_THRESHOLDS as THRESHOLDS
 from axuv.plotting import (
     DEFAULT_LIMITS,
     FONT_SCALE,
@@ -19,15 +19,14 @@ from axuv.plotting import (
     save_png_pdf,
     scale_suffix,
 )
-from axuv_measurement.io import get_AXUV_signals, PROJECT_ROOT
+from axuv_measurement.io import get_AXUV_signals
 from axuv_measurement.plotting import set_plt_rcparams
 
 
 set_plt_rcparams(scale=FONT_SCALE)
-project_dir = PROJECT_ROOT
 
 # THRESHOLDS is defined centrally in axuv.io (WTH_THRESHOLDS).
-# The corresponding crossing times are read from output/threshold_times.json.
+# The corresponding crossing times are read from $AXUV_OUTPUT_DIR/threshold_times.json.
 # Set PLOT_THRESHOLD_LINES = False to skip the W_th vertical-line figures
 # (the no-line figures are always saved regardless).
 PLOT_THRESHOLD_LINES = True
@@ -41,7 +40,7 @@ SHOT_CONFIG = {
     41007: {"starttime": 2.3417, "duration": 5.2e-3},
 }
 
-_threshold_times_path = project_dir / "output" / "threshold_times.json"
+_threshold_times_path = OUTPUT_DIR / "threshold_times.json"
 if not _threshold_times_path.exists():
     raise FileNotFoundError(
         f"Threshold times JSON not found at {_threshold_times_path}. "
@@ -51,7 +50,7 @@ with open(_threshold_times_path) as _f:
     _threshold_times = json.load(_f)
 
 
-def plot_one_camera(shotno, data, time, camera, project_dir, vmin=None, vmax=None, save=False, remove_offset=False,
+def plot_one_camera(shotno, data, time, camera, output_dir, vmin=None, vmax=None, save=False, remove_offset=False,
                     scale="log"):
     """
     Plots the AXUV signal data as pcolormesh for one camera in one shot,
@@ -68,8 +67,8 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=None, vmax=Non
         Time array.
     camera : str
         Camera name.
-    project_dir : str
-        Project directory.
+    output_dir : pathlib.Path
+        Root folder of the saved figures; they go to output_dir/<shotno>/.
     vmin : float, optional
         Minimum value for color scale. Defaults to DEFAULT_LIMITS[scale].
     vmax : float, optional
@@ -99,7 +98,7 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=None, vmax=Non
 
     if save:
         savename = str(shotno) + "_" + camera + "_notitle" + suffix
-        save_png_pdf(fig, project_dir / "output" / str(shotno) / savename)
+        save_png_pdf(fig, output_dir / str(shotno) / savename)
 
     firstcolor = "cyan"
     secondcolor = "lime"
@@ -120,7 +119,7 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=None, vmax=Non
         ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
 
         savename = str(shotno) + "_" + camera + f"_{_pct_str}" + suffix
-        save_png_pdf(fig, project_dir / "output" / str(shotno) / savename)
+        save_png_pdf(fig, output_dir / str(shotno) / savename)
 
     title_suffix = camera.replace("_", " ")
     if "vert" in title_suffix:
@@ -132,12 +131,12 @@ def plot_one_camera(shotno, data, time, camera, project_dir, vmin=None, vmax=Non
     plt.title(title)
     if save:
         savename = str(shotno) + "_" + camera + suffix
-        save_png_pdf(fig, project_dir / "output" / str(shotno) / savename)
+        save_png_pdf(fig, output_dir / str(shotno) / savename)
 
     plt.show()
     plt.close(fig)
 
-def save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, project_dir, save=False,
+def save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, output_dir, save=False,
                           scales=PLOT_SCALES, limits=None):
     """
     Plots both cameras of one shot in every colour scale of *scales*.
@@ -150,7 +149,7 @@ def save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, 
     for scale in scales:
         vmin, vmax = limits.get(scale, (None, None))
         for data, time, camera in ((vert_data, vert_time, vert_camera), (horiz_data, horiz_time, horiz_camera)):
-            plot_one_camera(shotno, data, time, camera, project_dir, vmin=vmin, vmax=vmax, save=save, scale=scale)
+            plot_one_camera(shotno, data, time, camera, output_dir, vmin=vmin, vmax=vmax, save=save, scale=scale)
 
 
 save_figures = True
@@ -164,7 +163,7 @@ horiz_camera = DHT
 vert_data, vert_time = get_AXUV_signals(shot=shotno, camera=vert_camera, tbeg=starttime, tend=endtime, gaussian_sigma=10)
 horiz_data, horiz_time = get_AXUV_signals(shot=shotno, camera=horiz_camera, tbeg=starttime, tend=endtime, gaussian_sigma=10)
 
-save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, project_dir, save=save_figures)
+save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, OUTPUT_DIR, save=save_figures)
 
 # %%
 shotno = 40673  # S05
@@ -175,7 +174,7 @@ horiz_camera = DHC
 
 vert_data, vert_time = get_AXUV_signals(shot=shotno, camera=vert_camera, tbeg=starttime, tend=endtime, gaussian_sigma=10)
 horiz_data, horiz_time = get_AXUV_signals(shot=shotno, camera=horiz_camera, tbeg=starttime, tend=endtime, gaussian_sigma=10)
-save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, project_dir, save=save_figures)
+save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, OUTPUT_DIR, save=save_figures)
 
 # %%
 shotno = 41007  # S16
@@ -186,7 +185,7 @@ horiz_camera = DHT
 
 vert_data, vert_time = get_AXUV_signals(shot=shotno, camera=vert_camera, tbeg=starttime, tend=endtime, gaussian_sigma=10)
 horiz_data, horiz_time = get_AXUV_signals(shot=shotno, camera=horiz_camera, tbeg=starttime, tend=endtime, gaussian_sigma=10)
-save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, project_dir, save=save_figures)
+save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, OUTPUT_DIR, save=save_figures)
 
 # %%
 shotno = 41007  # S05
@@ -197,4 +196,4 @@ horiz_camera = DHC
 
 vert_data, vert_time = get_AXUV_signals(shot=shotno, camera=vert_camera, tbeg=starttime, tend=endtime, gaussian_sigma=10)
 horiz_data, horiz_time = get_AXUV_signals(shot=shotno, camera=horiz_camera, tbeg=starttime, tend=endtime, gaussian_sigma=10)
-save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, project_dir, save=save_figures)
+save_two_camera_plots(shotno, vert_data, vert_time, horiz_data, horiz_time, OUTPUT_DIR, save=save_figures)

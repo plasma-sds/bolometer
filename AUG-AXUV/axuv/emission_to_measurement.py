@@ -17,7 +17,10 @@ degraded_noise share the same noise realisation, enabling direct comparison.
 
 Output tree
 -----------
-<project_root>/output/<parent_dir>/<emissions_dir>/<variant>/<combination>/
+The emissions directory is expected at <...>/<shot>/<phase>/<name>, such as the
+Stage 2 output $AXUV_OUTPUT_DIR/40673/P1/emissions. Results are written to
+
+$AXUV_OUTPUT_DIR/<shot>/<phase>/<variant>/<combination>/
     diode_evolution.csv   — 2-D array (diodes × timesteps)
     times_ms.csv          — 1-D array of physical times [ms]
     diode_evolution.png   — log-normalised pcolormesh time-evolution plot
@@ -45,7 +48,7 @@ from matplotlib.ticker import MaxNLocator
 import numpy as np
 
 from axuv.responsivity import get_weighted_power, DETECTOR_CALIBRATION_AMPER_PER_WATT
-from axuv.io import open_emission_data, load_etendue, WTH_THRESHOLDS
+from axuv.io import OUTPUT_DIR, open_emission_data, load_etendue, WTH_THRESHOLDS
 from axuv.plotting import (
     DEFAULT_LIMITS,
     FONT_SCALE,
@@ -312,7 +315,7 @@ if __name__ == "__main__":
         default=WTH_THRESHOLDS,
         metavar=("T1", "T2"),
         help="W_th threshold fractions for vertical-line overlays (e.g. --thresholds 0.9 0.1). "
-        "Defaults to WTH_THRESHOLDS from axuv.io. Times are read from output/threshold_times.json.",
+        "Defaults to WTH_THRESHOLDS from axuv.io. Times are read from $AXUV_OUTPUT_DIR/threshold_times.json.",
     )
     parser.add_argument(
         "--no-thresholds",
@@ -359,11 +362,9 @@ if __name__ == "__main__":
 
 
     # ── Build output root ──────────────────────────────────────────────────────
-    # <project_root>/output/<parent_dir_name>/<emissions_dir_name>/
-    project_root = Path(__file__).parent.parent
+    # $AXUV_OUTPUT_DIR/<shot>/<phase>/
     out_root = (
-        project_root
-        / "output"
+        OUTPUT_DIR
         / emissions_dir.parent.parent.name
         / emissions_dir.parent.name
     )
@@ -384,7 +385,7 @@ if __name__ == "__main__":
     t_thresholds = None
     if thresholds is not None:
         _pct_str = "_".join(str(int(thr * 100)) for thr in thresholds) + "pct"
-        _thr_json = project_root / "output" / "threshold_times.json"
+        _thr_json = OUTPUT_DIR / "threshold_times.json"
         if not _thr_json.exists():
             raise SystemExit(
                 f"Error: {_thr_json} not found. Run publications/plot_time_traces.py first."

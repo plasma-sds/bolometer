@@ -17,6 +17,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 maindir="$REPO_ROOT/axuv"
 datadir="$maindir/data"
+# Stage 2 writes to $AXUV_OUTPUT_DIR/<dataset>/emissions/, logs go to <dataset>/stdout/
+export AXUV_OUTPUT_DIR="${AXUV_OUTPUT_DIR:-$REPO_ROOT/output}"
 python="$REPO_ROOT/.venv/bin/python"
 [ -x "$python" ] || python=python3
 
@@ -26,11 +28,11 @@ export MPLBACKEND="Agg"
 # <dataset> <sector of its ray-transfer matrix>
 for pair in "40673/P1 S16" "41007/P1 S16" "40673/P45 S5" "41007/P45 S5"; do
     read -r currentdir sector <<< "$pair"
-    export currentdir
-    mkdir -p "$datadir/$currentdir/stdout" "$datadir/$currentdir/output"
+    logdir="$AXUV_OUTPUT_DIR/$currentdir/stdout"
+    mkdir -p "$logdir"
     matrix="$datadir/raytransfer_${sector}_${variant}.h5"
     echo "$(date +%T) working on $currentdir with $(basename "$matrix")"
     ls "$datadir/$currentdir/input" | parallel -j "$jobs" --halt never \
-        "nice -n 5 $python -u $maindir/calculate_emissions_for_raytransfer.py '$datadir/$currentdir/input/{}' --raytransfer-file $matrix &> $datadir/$currentdir/stdout/output_${variant}_{}.txt"
-    echo "$(date +%T) $currentdir done, exit $?, $(ls "$datadir/$currentdir/output" | grep -c "emissions_${variant}_") ${variant} output files"
+        "nice -n 5 $python -u $maindir/calculate_emissions_for_raytransfer.py '$datadir/$currentdir/input/{}' --raytransfer-file $matrix --dataset $currentdir &> $logdir/output_${variant}_{}.txt"
+    echo "$(date +%T) $currentdir done, exit $?, $(ls "$AXUV_OUTPUT_DIR/$currentdir/emissions" | grep -c "emissions_${variant}_") ${variant} output files"
 done

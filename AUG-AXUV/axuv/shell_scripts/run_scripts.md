@@ -74,11 +74,11 @@ axuv/shell_scripts/run_emissions_local.sh norefl 8
 axuv/shell_scripts/run_emissions_local.sh refl 8
 ```
 - The second argument is the number of parallel jobs (default 8). Each process peaks at about 1.7 GB of memory, so size it by free memory.
-- Results go to `axuv/data/<shot>/<plane>/output/emissions_<variant>_lowres_masked_<time>.h5`, logs to `stdout/output_<variant>_<file>.txt`.
+- Results go to `$AXUV_OUTPUT_DIR/<shot>/<plane>/emissions/emissions_<variant>_lowres_masked_<time>.h5` (default `AXUV_OUTPUT_DIR`: `output/` in the `AUG-AXUV` folder), logs to `$AXUV_OUTPUT_DIR/<shot>/<plane>/stdout/output_<variant>_<file>.txt`.
 - The neon rates come from the Cherab OpenADAS repository in `~/.cherab`. If it lacks the Ne data, every run fails with `Requested PEC rate ... is not available`; copy the repository from a machine where it is populated, or populate it as described in the main readme.
 - With 8 jobs, one variant takes about 30 min for all 402 files on a 16-core laptop.
 
-Afterwards, `plot_and_save_synthetic_measurements.sh` (below) processes every variant found in the `output/` directories.
+Afterwards, `plot_and_save_synthetic_measurements.sh` (below) processes every variant found in the `emissions/` directories.
 
 ## Threshold-related plotting (W_th vertical lines)
 
@@ -114,13 +114,13 @@ argument. Vertical lines are drawn by default (levels from `WTH_THRESHOLDS`);
 override or disable them per run:
 ```bash
 # Default thresholds
-python axuv/emission_to_measurement.py axuv/data/40673/P1/output
+python axuv/emission_to_measurement.py output/40673/P1/emissions
 
 # Custom threshold levels for this run only
-python axuv/emission_to_measurement.py axuv/data/40673/P1/output --thresholds 0.8 0.2
+python axuv/emission_to_measurement.py output/40673/P1/emissions --thresholds 0.8 0.2
 
 # No vertical lines (only the no-line figures are saved)
-python axuv/emission_to_measurement.py axuv/data/40673/P1/output --no-thresholds
+python axuv/emission_to_measurement.py output/40673/P1/emissions --no-thresholds
 ```
 
 ### Log and linear colour scales
@@ -128,9 +128,9 @@ The diode time-evolution plots are drawn on a log colour scale by default. `--sc
 The linear colour limits default to 0 and the maximum of each figure's data; `--lin-vmin` and `--lin-vmax` override them, as `--vmin` and `--vmax` do for the log scale.
 ```bash
 # Log and linear figures
-python axuv/emission_to_measurement.py axuv/data/40673/P1/output --scale both
+python axuv/emission_to_measurement.py output/40673/P1/emissions --scale both
 
 # Linear only, with a fixed upper colour limit
-python axuv/emission_to_measurement.py axuv/data/40673/P1/output --scale linear --lin-vmax 5e7
+python axuv/emission_to_measurement.py output/40673/P1/emissions --scale linear --lin-vmax 5e7
 ```
 For the experimental figures, `PLOT_SCALES` in `axuv_measurement/plotting_from_shotfiles.py` selects the scales, and the `limits` argument of `save_two_camera_plots` overrides the colour limits per scale, e.g. `limits={"linear": (0, 5e7)}`.

@@ -18,8 +18,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # axuv_measurement/plotting_from_shotfiles.py.
 WTH_THRESHOLDS = [0.9, 0.1]
 
-CURRENTDIR = DATADIR + "/" + str(os.environ.get("currentdir")) + "/"
-SAVEDIR = CURRENTDIR + "output/"
+# Root of everything the workflow writes (Stage 1-3 results, figures, CSVs).
+# Kept apart from the data directory, which only holds inputs.
+OUTPUT_DIR = Path(os.environ.get("AXUV_OUTPUT_DIR") or PROJECT_ROOT / "output").resolve()
+
+
+def emissions_output_dir(dataset: str) -> Path:
+    """Return the Stage 2 output directory of *dataset* (e.g. '40673/P1')."""
+    return OUTPUT_DIR / dataset / "emissions"
 
 # Loading diode geometry data into a pandas DataFrame for easier filtering
 AXUV_DATAFILE = DATADIR + "AXUV_LOS_geom.txt"

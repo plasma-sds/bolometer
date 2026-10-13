@@ -147,19 +147,16 @@ The input data is not tracked in git (`axuv/data/` and `aug/` are gitignored). F
 
 ### Environment variables
 
-`axuv.io` reads two optional variables, set by the SLURM scripts in `axuv/shell_scripts/`:
+`axuv.io` reads these optional variables:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `datadir` | `axuv/data` | root of the data directory |
-| `currentdir` | unset | dataset subdirectory, e.g. `40673/P1`; outputs go to `$datadir/$currentdir/output/` |
+| `datadir` | `axuv/data` | root of the input data directory; the workflow does not write there by default |
+| `AXUV_OUTPUT_DIR` | `output/` in the `AUG-AXUV` folder | root of everything the workflow writes: Stage 1 files, Stage 2 emissions, Stage 3 results, figures |
+| `currentdir` | unset | dataset of a Stage 2 run, e.g. `40673/P1`; used when `--dataset` is not given |
 
-If `currentdir` is unset, the derived output path contains a literal `None` directory, so set it before running Stage 2 (`calculate_emissions_for_raytransfer.py`), which writes to that path:
-
-```bash
-export datadir="$PWD/axuv/data"
-export currentdir="40673/P1"
-```
+Stage 2 writes to `$AXUV_OUTPUT_DIR/<dataset>/emissions/`, with the dataset given by `--dataset` (or `currentdir`), or to the directory given by `--output-dir`.
+The shell scripts in `axuv/shell_scripts/` put their logs in `$AXUV_OUTPUT_DIR/<dataset>/stdout/`.
 
 The scripts in `axuv/shell_scripts/` hardcode the server path of the checkout in `maindir`; adjust it before use. The parallel submission scripts also need GNU `parallel`.
 
@@ -179,7 +176,9 @@ predicted per-diode signal.
 ### Stage 1 — Geometry matrix
 
 Computes how much emission from each plasma voxel reaches each diode via
-Raysect ray tracing.  Outputs `raytransfer_<sectors>_[no]refl.h5`.
+Raysect ray tracing.  Outputs `$AXUV_OUTPUT_DIR/raytransfer_<sectors>_[no]refl.h5`
+unless `--output` is given. Move the file into the data directory to use it as a
+Stage 2 input.
 
 ```bash
 # Sector 5, no reflections (fastest, good for iteration)
@@ -204,7 +203,10 @@ Interpolates JOREK data onto the voxel grid, evaluates Cherab spectral
 emission models, and folds with the geometry matrix.
 
 ```bash
-python axuv/calculate_emissions_for_raytransfer.py
+python axuv/calculate_emissions_for_raytransfer.py \
+    axuv/data/40673/P1/input/step01010_out.h5 \
+    --raytransfer-file axuv/data/raytransfer_S16_norefl.h5 --dataset 40673/P1
+# writes $AXUV_OUTPUT_DIR/40673/P1/emissions/emissions_norefl_lowres_masked_<time>.h5
 ```
 
 ### Stage 3 — Synthetic signals
@@ -214,11 +216,12 @@ scalar signal per diode per timestep. Takes the emissions directory produced by
 Stage 2 as a positional argument.
 
 ```bash
-python axuv/emission_to_measurement.py axuv/data/40673/P1/output
+python axuv/emission_to_measurement.py output/40673/P1/emissions
+# writes $AXUV_OUTPUT_DIR/40673/P1/<variant>/<combination>/
 ```
 
 `W_th` vertical lines are overlaid by default at the levels in `WTH_THRESHOLDS`
-(`axuv/io.py`); the crossing times are read from `output/threshold_times.json`,
+(`axuv/io.py`); the crossing times are read from `$AXUV_OUTPUT_DIR/threshold_times.json`,
 which `publications/plot_time_traces.py` must have produced first. Override the
 levels with `--thresholds T1 T2`, or disable the overlay with `--no-thresholds`
 (the no-line figures are always saved either way).

@@ -30,7 +30,7 @@ from raysect.optical.material.emitter.homogeneous import HomogeneousVolumeEmitte
 from raysect.optical.observer import PowerPipeline0D
 
 from axuv.cameras import create_observable_world
-from axuv.io import PROJECT_ROOT, load_axuv_df
+from axuv.io import OUTPUT_DIR, PROJECT_ROOT, load_axuv_df
 from axuv.plotting import set_plt_rcparams
 
 matplotlib.use("Agg")
@@ -44,7 +44,6 @@ BANDWIDTH = MAX_WL - MIN_WL  # 1239.75 nm
 PIXEL_SAMPLES = 100_000
 N_PROCESSES = 10
 DATA_DIR = PROJECT_ROOT / "axuv" / "data"
-OUTPUT_DIR = PROJECT_ROOT / "output"
 
 
 # ── Uniform emitter material ──────────────────────────────────────────────────

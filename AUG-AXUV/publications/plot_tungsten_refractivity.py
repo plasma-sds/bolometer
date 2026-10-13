@@ -4,7 +4,7 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 
-from axuv.io import PROJECT_ROOT
+from axuv.io import OUTPUT_DIR, PROJECT_ROOT
 from axuv.plotting import set_plt_rcparams
 from publications.plot_sightlines import line
 
@@ -12,7 +12,7 @@ set_plt_rcparams()
 
 project_dir = PROJECT_ROOT
 data_dir = project_dir / "axuv" / "data"
-output_dir = project_dir / "output"
+output_dir = OUTPUT_DIR
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # %% Load data from data_dir / tungsten_refractivity_data.json

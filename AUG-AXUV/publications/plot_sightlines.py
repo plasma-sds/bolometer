@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import aug_sfutils as sf
 
 from axuv.cameras import create_observable_world
-from axuv.io import load_axuv_df, PROJECT_ROOT, _GC_LINES_PATH
+from axuv.io import OUTPUT_DIR, load_axuv_df, _GC_LINES_PATH
 from axuv.plotting import set_plt_rcparams, show_camera_lines_of_sight
 from axuv_measurement.geometry import plot_qsurfaces
 
@@ -18,8 +18,8 @@ from axuv_measurement.geometry import plot_qsurfaces
 # Set default plotting parameters
 set_plt_rcparams()
 
-savepath = PROJECT_ROOT / "output" / "sightline_comparison.pdf"
-savepath_png = PROJECT_ROOT / "output" / "sightline_comparison.png"
+savepath = OUTPUT_DIR / "sightline_comparison.pdf"
+savepath_png = OUTPUT_DIR / "sightline_comparison.png"
 
 # Load AXUV geometry data and PFC component outlines
 axuv_df = load_axuv_df()
@@ -92,8 +92,8 @@ ax.set_xlim(1.0, 2.35)
 ax.set_aspect('equal')
 
 plt.legend(loc='lower right')
-savepath_png = PROJECT_ROOT / "output" / "sightlines_S16.png"
-savepath = PROJECT_ROOT / "output" / "sightlines_S16.pdf"
+savepath_png = OUTPUT_DIR / "sightlines_S16.png"
+savepath = OUTPUT_DIR / "sightlines_S16.pdf"
 plt.savefig(savepath_png, format='png', dpi=300, bbox_inches='tight')
 plt.savefig(savepath, format="PDF", bbox_inches='tight')
 plt.show()

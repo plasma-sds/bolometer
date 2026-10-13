@@ -20,7 +20,7 @@ from cherab.core.atomic import deuterium, neon
 from cherab.core.model import ExcitationLine, GaussianLine, RecombinationLine, Bremsstrahlung
 from cherab.openadas import OpenADAS
 
-from axuv.io import DATADIR, PROJECT_ROOT
+from axuv.io import OUTPUT_DIR, DATADIR
 
 
 # must be set before any pyplot import; keeps observe() from blocking on headless machines
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     los.observe()
 
     # Save HDF5
-    folder_name = PROJECT_ROOT / "output" / "1D_data"
+    folder_name = OUTPUT_DIR / "1D_data"
     folder_name.mkdir(parents=True, exist_ok=True)
     hdf5_path = folder_name / "highres_{:.4f}s.h5".format(do_time[ti])
 

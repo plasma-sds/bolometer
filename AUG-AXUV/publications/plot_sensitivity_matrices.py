@@ -6,7 +6,7 @@ import h5py
 import matplotlib.pyplot as plt
 
 from axuv.cameras import WAVELENGTH_BIN_EDGES
-from axuv.io import _GC_LINES_PATH, PROJECT_ROOT
+from axuv.io import OUTPUT_DIR, _GC_LINES_PATH, PROJECT_ROOT
 from axuv.plotting import plot_sensitivity_map, set_plt_rcparams
 
 project_dir = PROJECT_ROOT
@@ -87,8 +87,8 @@ try:
         f"Resolution in R: {grid_centres.shape[0]}, Resolution in Z: {grid_centres.shape[1]}"
     )
     reflections = False if "norefl" in str(raytransfer_path) else True
-    # Create folder in project_dir/output/ named only the raytransfer filename without extension
-    output_dir = Path(project_dir) / "output" / raytransfer_path.stem
+    # Create folder in $AXUV_OUTPUT_DIR named only the raytransfer filename without extension
+    output_dir = OUTPUT_DIR / raytransfer_path.stem
     output_dir.mkdir(parents=True, exist_ok=True)
 except Exception as e:
     print(f"Could not load sensitivity matrix from {raytransfer_path}: {e}")
@@ -147,8 +147,8 @@ for raytransfer_path in RAYTRANSFER_PATHS:
             f"Resolution in R: {grid_centres.shape[0]}, Resolution in Z: {grid_centres.shape[1]}"
         )
         reflections = False if "norefl" in str(raytransfer_path) else True
-        # Create folder in project_dir/output/ named only the raytransfer filename without extension
-        output_dir = Path(project_dir) / "output" / raytransfer_path.stem
+        # Create folder in $AXUV_OUTPUT_DIR named only the raytransfer filename without extension
+        output_dir = OUTPUT_DIR / raytransfer_path.stem
         output_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         print(f"Could not load sensitivity matrix from {raytransfer_path}: {e}")

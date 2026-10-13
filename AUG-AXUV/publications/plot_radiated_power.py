@@ -34,7 +34,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
-from axuv.io import PROJECT_ROOT, gc_d_lines, open_emission_data
+from axuv.io import OUTPUT_DIR, PROJECT_ROOT, gc_d_lines, open_emission_data
 from axuv.plotting import plot_sensitivity_map, set_plt_rcparams
 from axuv.responsivity import get_weighted_power
 
@@ -60,8 +60,8 @@ RAYTRANSFER_PATH = data_dir / "raytransfer_S16_reflections_lowres.h5"
 # discharge -> (directory of emissions_*.h5, absolute start time [s])
 # Start times mirror plot_time_traces.py / emission_to_measurement.py.
 SHOTS = {
-    "40673": (data_dir / "40673" / "P1" / "output", 2.3276),
-    "41007": (data_dir / "41007" / "P1" / "output", 2.3417),
+    "40673": (OUTPUT_DIR / "40673" / "P1" / "emissions", 2.3276),
+    "41007": (OUTPUT_DIR / "41007" / "P1" / "emissions", 2.3417),
 }
 
 MODES = ["total", "weighted"]
@@ -75,7 +75,7 @@ MODES = ["total", "weighted"]
 figsize = (5.4, 6.5)
 frame_dpi = 150
 
-output_root = project_dir / "output" / "radiated_power"
+output_root = OUTPUT_DIR / "radiated_power"
 output_root.mkdir(parents=True, exist_ok=True)
 
 # Emission filenames follow  emissions_<VARIANT>_<time>.h5 ; strip this fixed

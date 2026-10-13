@@ -3,14 +3,14 @@ import bisect
 import numpy as np
 import matplotlib.pyplot as plt
 
-from axuv.io import PROJECT_ROOT
+from axuv.io import OUTPUT_DIR, PROJECT_ROOT
 from axuv.plotting import set_plt_rcparams
 
 set_plt_rcparams()
 
 project_dir = PROJECT_ROOT
 data_dir = project_dir / "axuv" / "data"
-output_dir = project_dir / "output"
+output_dir = OUTPUT_DIR
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # %% Load data

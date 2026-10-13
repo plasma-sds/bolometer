@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from axuv.io import AXUV_DATAFILE, PROJECT_ROOT
+from axuv.io import OUTPUT_DIR, AXUV_DATAFILE, PROJECT_ROOT
 from axuv.plotting import set_plt_rcparams
 
 # Update default matplotlib parameters for LaTeX plotting for articles
@@ -132,8 +132,8 @@ for i in range(3):
     ax.axvline(i * 48 + 47.5, linestyle="--", color="gray", linewidth=1)
 plt.ylim(0.3e-9, 1e-9)
 plt.xlim(0, 192)
-plt.savefig(project_dir / "output" / "etendue_comparison.png")
-plt.savefig(project_dir / "output" / "etendue_comparison.pdf", format="PDF")
+plt.savefig(OUTPUT_DIR / "etendue_comparison.png")
+plt.savefig(OUTPUT_DIR / "etendue_comparison.pdf", format="PDF")
 
 # %%
 # Also print the relative error between raytraced and AUG

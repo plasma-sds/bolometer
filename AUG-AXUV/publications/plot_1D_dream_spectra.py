@@ -5,15 +5,15 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 
-from axuv.io import PROJECT_ROOT
+from axuv.io import OUTPUT_DIR, PROJECT_ROOT
 from axuv.plotting import set_plt_rcparams
 from axuv.responsivity import degraded_sensitivity_function, sensitivity_function, worst_sensitivity
 
 set_plt_rcparams()
 
 axuv_data_dir = PROJECT_ROOT / "axuv" / "data"
-data_dir = PROJECT_ROOT / "output" / "1D_data"
-output_dir = PROJECT_ROOT / "output" / "1D_plots"
+data_dir = OUTPUT_DIR / "1D_data"
+output_dir = OUTPUT_DIR / "1D_plots"
 os.makedirs(output_dir, exist_ok=True)
 
 # %% Figure 1: time evolution of η_eff
@@ -118,7 +118,7 @@ print("Saved two-spectra figure to", output_dir)
 
 # %% Figure 3: DREAM average electron temperature and plasma current time evolution
 
-savefolder = PROJECT_ROOT / "output" / "1D_plots"
+savefolder = OUTPUT_DIR / "1D_plots"
 os.makedirs(savefolder, exist_ok=True)
 
 # Data is a DREAM hdf5 output file: axuv/data/dream_output.h5
@@ -153,6 +153,6 @@ ax2.axvline(2.3035, color="magenta", linestyle="--", label=r"2$^{\mathrm{nd}}$ s
 plt.legend(ax.get_legend_handles_labels()[0] + ax2.get_legend_handles_labels()[0],
            ax.get_legend_handles_labels()[1] + ax2.get_legend_handles_labels()[1], loc="upper right")
 
-plt.savefig(PROJECT_ROOT / "output" / "1D_plots" / "dream_time_evolution.png", dpi=300, bbox_inches="tight")
-plt.savefig(PROJECT_ROOT / "output" / "1D_plots" / "dream_time_evolution.pdf", format="PDF", bbox_inches="tight")
+plt.savefig(OUTPUT_DIR / "1D_plots" / "dream_time_evolution.png", dpi=300, bbox_inches="tight")
+plt.savefig(OUTPUT_DIR / "1D_plots" / "dream_time_evolution.pdf", format="PDF", bbox_inches="tight")
 plt.show()

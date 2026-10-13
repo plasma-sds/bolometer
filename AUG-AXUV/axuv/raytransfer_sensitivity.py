@@ -28,7 +28,8 @@ Usage
 
 Output
 ------
-An HDF5 file whose name encodes the sectors and reflection mode:
+An HDF5 file in $AXUV_OUTPUT_DIR (default: <project_root>/output/) whose name
+encodes the sectors and reflection mode:
     raytransfer_<sectors>_[no]refl.h5
 e.g.  raytransfer_S5_norefl.h5
       raytransfer_S16_refl.h5
@@ -62,7 +63,7 @@ from axuv.interpolation import (
     POLOIDAL_ZMAX,
     POLOIDAL_ZMIN,
 )
-from axuv.io import load_axuv_df
+from axuv.io import OUTPUT_DIR, load_axuv_df
 
 MAX_BIN_WIDTH = MAX_WAVELENGTHS[-1] / SPECTRAL_BINS
 
@@ -141,7 +142,8 @@ def _parse_args():
         metavar="PATH",
         help=(
             "Path for the output HDF5 file. "
-            "Defaults to raytransfer_<sectors>_[no]refl.h5 in the current directory."
+            "Defaults to raytransfer_<sectors>_[no]refl.h5 (or etendue_<sectors>.h5) "
+            "in $AXUV_OUTPUT_DIR."
         ),
     )
     parser.add_argument(
@@ -167,7 +169,7 @@ def _build_output_path(sectors: list, reflections: bool, output_arg) -> str:
         return output_arg
     sector_tag = "_".join(sectors)
     refl_tag = "refl" if reflections else "norefl"
-    return f"raytransfer_{sector_tag}_{refl_tag}.h5"
+    return str(OUTPUT_DIR / f"raytransfer_{sector_tag}_{refl_tag}.h5")
 
 
 def _build_etendue_output_path(sectors: list, output_arg) -> str:
@@ -175,7 +177,7 @@ def _build_etendue_output_path(sectors: list, output_arg) -> str:
     if output_arg is not None:
         return output_arg
     sector_tag = "_".join(sectors)
-    return f"etendue_{sector_tag}.h5"
+    return str(OUTPUT_DIR / f"etendue_{sector_tag}.h5")
 
 
 def _load_jorek_hull(jorek_file: str) -> np.ndarray:
@@ -355,6 +357,7 @@ if __name__ == "__main__":
         HDF5_PATH = _build_output_path(SECTORS, USE_CAD_MESH, args.output)
     else:
         HDF5_PATH = _build_etendue_output_path(SECTORS, args.output)
+    os.makedirs(os.path.dirname(os.path.abspath(HDF5_PATH)), exist_ok=True)
 
     # Load the AXUV diode geometry data
     axuv_df = load_axuv_df()

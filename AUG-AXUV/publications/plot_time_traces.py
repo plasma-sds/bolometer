@@ -3,14 +3,14 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 
-from axuv.io import PROJECT_ROOT, WTH_THRESHOLDS as THRESHOLDS
+from axuv.io import OUTPUT_DIR, PROJECT_ROOT, WTH_THRESHOLDS as THRESHOLDS
 from axuv.plotting import set_plt_rcparams
 
 set_plt_rcparams()
 
 project_dir = PROJECT_ROOT
 data_dir = project_dir / "axuv" / "data"
-output_dir = project_dir / "output"
+output_dir = OUTPUT_DIR
 output_dir.mkdir(parents=True, exist_ok=True)
 
 SHOTS = [40673, 41007]

@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import os
 import warnings
 from pathlib import Path
 
@@ -36,7 +37,7 @@ from axuv.interpolation import (
     POLOIDAL_ZMIN,
     interpolate_parameters,
 )
-from axuv.io import DATADIR, SAVEDIR, load_axuv_df
+from axuv.io import DATADIR, emissions_output_dir, load_axuv_df
 from axuv.plasma import emission_function_3d
 from axuv.cameras import WAVELENGTH_BIN_EDGES
 
@@ -73,7 +74,24 @@ def _parse_args():
         default=True,
         help="Mask negative emission values to 0, except for T_e which is masked to 1 eV.",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--dataset",
+        default=os.environ.get("currentdir"),
+        metavar="SHOT/PHASE",
+        help="Dataset the input belongs to, e.g. 40673/P1. Results go to "
+        "$AXUV_OUTPUT_DIR/<dataset>/emissions/. Defaults to the currentdir env var.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        "-o",
+        default=None,
+        metavar="DIR",
+        help="Directory for the emission file. Overrides the path derived from --dataset.",
+    )
+    args = parser.parse_args()
+    if args.output_dir is None and args.dataset is None:
+        parser.error("give --dataset (or set currentdir) or --output-dir")
+    return args
 
 
 if __name__ == "__main__":
@@ -82,6 +100,8 @@ if __name__ == "__main__":
     RAYTRANSFER_PATH = args.raytransfer_file
     RESOLUTION_R = args.resolution_r
     RESOLUTION_Z = args.resolution_z
+    SAVEDIR = Path(args.output_dir) if args.output_dir else emissions_output_dir(args.dataset)
+    SAVEDIR.mkdir(parents=True, exist_ok=True)
 
     # ... load data ...
 
@@ -367,13 +387,13 @@ if __name__ == "__main__":
         prefix = "emissions_norefl_"
 
     if not mask_negative and "highres" in RAYTRANSFER_PATH:
-        savename: str = SAVEDIR + prefix + "highres_" + SI_time + ".h5"
+        savename = SAVEDIR / (prefix + "highres_" + SI_time + ".h5")
     elif mask_negative and "highres" in RAYTRANSFER_PATH:
-        savename: str = SAVEDIR + prefix + "highres_masked_" + SI_time + ".h5"
+        savename = SAVEDIR / (prefix + "highres_masked_" + SI_time + ".h5")
     elif not mask_negative and "highres" not in RAYTRANSFER_PATH:
-        savename: str = SAVEDIR + prefix + "lowres_" + SI_time + ".h5"
+        savename = SAVEDIR / (prefix + "lowres_" + SI_time + ".h5")
     elif mask_negative and "highres" not in RAYTRANSFER_PATH:
-        savename: str = SAVEDIR + prefix + "lowres_masked_" + SI_time + ".h5"
+        savename = SAVEDIR / (prefix + "lowres_masked_" + SI_time + ".h5")
 
 
     print(savename)

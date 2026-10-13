@@ -17,13 +17,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from axuv.io import PROJECT_ROOT
+from axuv.io import OUTPUT_DIR
 from axuv.plotting import set_plt_rcparams
 
 set_plt_rcparams()
 
-project_dir = PROJECT_ROOT
-output_dir  = project_dir / "output"
+output_dir = OUTPUT_DIR
 output_dir.mkdir(parents=True, exist_ok=True)
 
 COMBINATION = "nominal_no_noise"   # no noise → clean resolution comparison
