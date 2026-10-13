@@ -20,7 +20,8 @@ from cherab.core.atomic import deuterium, neon
 from cherab.core.model import ExcitationLine, GaussianLine, RecombinationLine, Bremsstrahlung
 from cherab.openadas import OpenADAS
 
-from axuv.io import OUTPUT_DIR, DATADIR
+from axuv.datafiles import data_path
+from axuv.io import OUTPUT_DIR
 
 
 # must be set before any pyplot import; keeps observe() from blocking on headless machines
@@ -80,7 +81,7 @@ if __name__ == "__main__":
         populate()
 
     # Load DREAM output
-    with h5py.File(DATADIR + "dream_output.h5") as do:
+    with h5py.File(data_path("dream/dream_output.h5")) as do:
         do_ions = do["eqsys/n_i"][()]
         do_n_cold = do["eqsys/n_cold"][()]
         do_n_hot = do["eqsys/n_hot"][()]
@@ -172,7 +173,7 @@ if __name__ == "__main__":
 
     # Neon lines from ne.csv
     neon_lines = []
-    with open(DATADIR + "ne.csv") as f:
+    with open(data_path("atomic/ne.csv")) as f:
         for i, part1, part2 in csv.reader(f):
             line = Line(neon, int(i), (part1, part2))
             neon_lines.append(ExcitationLine(line, lineshape=GaussianLine))

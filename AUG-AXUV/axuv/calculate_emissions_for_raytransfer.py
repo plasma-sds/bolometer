@@ -37,7 +37,8 @@ from axuv.interpolation import (
     POLOIDAL_ZMIN,
     interpolate_parameters,
 )
-from axuv.io import DATADIR, emissions_output_dir, load_axuv_df
+from axuv.datafiles import data_path
+from axuv.io import emissions_output_dir, load_axuv_df
 from axuv.plasma import emission_function_3d
 from axuv.cameras import WAVELENGTH_BIN_EDGES
 
@@ -64,8 +65,9 @@ def _parse_args():
     parser.add_argument(
         "--raytransfer-file",
         "-r",
-        help="Path to the raytransfer HDF5 file",
-        default=str(Path(__file__).parent / "data" / "raytransfer_S16_norefl.h5"),
+        help="Path to the raytransfer HDF5 file. Defaults to the data file "
+        "raytransfer/raytransfer_S16_norefl.h5.",
+        default=None,
     )
     parser.add_argument(
         "--mask-negative",
@@ -97,7 +99,9 @@ def _parse_args():
 if __name__ == "__main__":
     args = _parse_args()
     INPUT_FILENAME = args.input_file
-    RAYTRANSFER_PATH = args.raytransfer_file
+    RAYTRANSFER_PATH = args.raytransfer_file or str(
+        data_path("raytransfer/raytransfer_S16_norefl.h5")
+    )
     RESOLUTION_R = args.resolution_r
     RESOLUTION_Z = args.resolution_z
     SAVEDIR = Path(args.output_dir) if args.output_dir else emissions_output_dir(args.dataset)
@@ -298,7 +302,7 @@ if __name__ == "__main__":
     # Get Neon lines from Photon Emissivity Coefficients datafiles
     ##############################################################
     neon_lines = []
-    with open(DATADIR + "ne.csv") as f:
+    with open(data_path("atomic/ne.csv")) as f:
         reader = csv.reader(f)
         for row in reader:
             i, part1, part2 = row
