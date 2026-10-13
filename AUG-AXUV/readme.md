@@ -154,7 +154,7 @@ Data copied by hand into the old layout (`axuv/data/` and `aug/`) is placed at t
 
 The keys on the server are listed in `axuv/data_index.json`, since the utility cannot list server folders. `python -m axuv.fetch_data <key prefixes>` downloads every listed key under the prefixes (`--paths` prints their local paths, one per line, for shell scripts).
 
-Local copies are uploaded to the server with `python -m axuv.publish_data <key prefixes>`, e.g. `python -m axuv.publish_data geometry jorek/40673` (`--dry-run` lists the files). Keys already on the server are skipped; `--replace VERSION` replaces them and keeps the old files as `archive/VERSION/<key>`. Uploads need SSH access, also for public data. After uploading, regenerate the index with `python -m axuv.data_index` and commit it.
+Local copies are uploaded to the server with `python -m axuv.publish_data <key prefixes>`, e.g. `python -m axuv.publish_data geometry jorek/40673` (`--dry-run` lists the files and whether each is on the server already). Keys already on the server are skipped; `--replace VERSION` replaces them and keeps the old files as `archive/VERSION/<key>`. Uploads need SSH access, also for public data. After uploading, regenerate the index with `python -m axuv.data_index` and commit it.
 
 The Stage 1 `--jorek-file` and the Stage 2 input file are paths; print the local path of a key with:
 

@@ -1,8 +1,8 @@
 """Unit tests for axuv.publish_data — key selection and upload outcomes, no server."""
 import pytest
-from plasmasds_utility import AuthError, TransferError
+from plasmasds_utility import AlreadyOnServerError, AuthError, TransferError
 
-from axuv import datafiles, publish_data
+from axuv import datafiles
 from axuv.publish_data import local_keys, publish
 
 
@@ -64,9 +64,7 @@ class FakeClient:
 
 def test_publish_outcomes(monkeypatch):
     client = FakeClient({
-        "aug-axuv/geometry/b.txt": TransferError(
-            "/x is already on the server; an upload replaces a file only when ..."
-        ),
+        "aug-axuv/geometry/b.txt": AlreadyOnServerError("/x is already on the server"),
         "aug-axuv/geometry/c.txt": TransferError("timed out"),
     })
     monkeypatch.setattr(datafiles, "_CLIENT", client)
@@ -93,12 +91,3 @@ def test_publish_stops_without_access(monkeypatch):
     with pytest.raises(AuthError):
         publish(["geometry/a.txt", "geometry/b.txt"])
     assert len(client.calls) == 1
-
-
-def test_on_server_message_matches_pinned_utility():
-    # Guards the message match against a change in the pinned plasmasds_utility.
-    import inspect
-
-    from plasmasds_utility import _sftp
-
-    assert publish_data._ON_SERVER in inspect.getsource(_sftp.upload)

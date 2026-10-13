@@ -29,13 +29,9 @@ Usage
 
 import argparse
 
-from plasmasds_utility import AuthError, PlasmasdsUtilityError, TransferError
+from plasmasds_utility import AlreadyOnServerError, AuthError, PlasmasdsUtilityError
 
-from axuv.datafiles import DATA_TREES, KEY_ROOT, client_dir, is_private, upload
-
-# Start of plasmasds_utility's message for a key that is already on the server
-# and is not archived (pinned version, see pyproject.toml).
-_ON_SERVER = "is already on the server"
+from axuv.datafiles import DATA_TREES, KEY_ROOT, client_dir, is_private, on_server, upload
 
 
 def local_keys(prefixes: list[str]) -> tuple[list[str], list[str]]:
@@ -73,14 +69,10 @@ def publish(keys: list[str], replace: str | None = None) -> dict[str, list[str]]
         try:
             upload(key, archive_to=archive_to)
             results["uploaded"].append(key)
+        except AlreadyOnServerError:
+            results["on server"].append(key)
         except AuthError:
             raise
-        except TransferError as error:
-            if replace is None and _ON_SERVER in str(error):
-                results["on server"].append(key)
-            else:
-                results["failed"].append(f"{key}: {error}")
-                print(f"    failed: {error}", flush=True)
         except PlasmasdsUtilityError as error:
             results["failed"].append(f"{key}: {error}")
             print(f"    failed: {error}", flush=True)
@@ -103,7 +95,11 @@ def main():
         metavar="VERSION",
         help="Replace files already on the server, keeping each as archive/VERSION/<key>.",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Only list what would be uploaded.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Only list the selected files, and whether each is on the server already.",
+    )
     args = parser.parse_args()
 
     keys, misplaced = local_keys(args.prefixes)
@@ -112,9 +108,15 @@ def main():
     if not keys:
         raise SystemExit(f"No local files under {', '.join(args.prefixes)} in {client_dir()}.")
     if args.dry_run:
+        new = 0
         for key in keys:
-            print(f"{'private' if is_private(key) else 'public':7} {key}")
-        print(f"\n{len(keys)} file(s) would be uploaded from {client_dir()}")
+            try:
+                status = "on server" if on_server(key) else "new"
+            except PlasmasdsUtilityError as error:
+                status = f"unknown ({type(error).__name__})"
+            new += status == "new"
+            print(f"{'private' if is_private(key) else 'public':7} {status:9} {key}")
+        print(f"\n{len(keys)} file(s) selected in {client_dir()}, {new} not on the server")
         return
 
     try:
