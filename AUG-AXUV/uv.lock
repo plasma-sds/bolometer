@@ -44,7 +44,7 @@ requires-dist = [
     { name = "numpy", specifier = "<2" },
     { name = "pandas" },
     { name = "pillow" },
-    { name = "plasmasds-utility", git = "https://github.com/plasma-sds/plasmasds_utility?rev=3c03ffcc7432e9ca2f0ffea38a3cef61c8d627bc" },
+    { name = "plasmasds-utility", git = "https://github.com/plasma-sds/plasmasds_utility?rev=8b4fc2c518a60070da2158754a6a08e0fcb66036" },
     { name = "raysect", specifier = "==0.8.1.*" },
     { name = "scikit-image" },
     { name = "scipy" },
@@ -452,7 +452,7 @@ wheels = [
 [[package]]
 name = "plasmasds-utility"
 version = "0.1.0.dev0"
-source = { git = "https://github.com/plasma-sds/plasmasds_utility?rev=3c03ffcc7432e9ca2f0ffea38a3cef61c8d627bc#3c03ffcc7432e9ca2f0ffea38a3cef61c8d627bc" }
+source = { git = "https://github.com/plasma-sds/plasmasds_utility?rev=8b4fc2c518a60070da2158754a6a08e0fcb66036#8b4fc2c518a60070da2158754a6a08e0fcb66036" }
 dependencies = [
     { name = "paramiko" },
 ]
