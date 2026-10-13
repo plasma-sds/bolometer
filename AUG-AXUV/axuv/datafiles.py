@@ -81,6 +81,11 @@ def data_path(key: str, *, update: str = "never") -> Path:
     return _CLIENT.get(server_key(key), private=is_private(key), update=update)
 
 
+def client_dir() -> Path:
+    """Return the local folder of the bolometer client (holds private/ and public/)."""
+    return _CLIENT.client_dir()
+
+
 def local_path(key: str) -> Path:
     """Return where *key* is, or will be, stored locally, without any I/O."""
     return _CLIENT.local_path(server_key(key), private=is_private(key))
