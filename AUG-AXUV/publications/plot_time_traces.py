@@ -3,13 +3,12 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 
-from axuv.io import OUTPUT_DIR, PROJECT_ROOT, WTH_THRESHOLDS as THRESHOLDS
+from axuv.datafiles import data_path
+from axuv.io import OUTPUT_DIR, WTH_THRESHOLDS as THRESHOLDS
 from axuv.plotting import set_plt_rcparams
 
 set_plt_rcparams()
 
-project_dir = PROJECT_ROOT
-data_dir = project_dir / "axuv" / "data"
 output_dir = OUTPUT_DIR
 output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -30,11 +29,10 @@ LABELS = {
 # %% Load and normalize
 data = {}
 for shot in SHOTS:
-    shot_dir = data_dir / str(shot)
     data[shot] = {}
     for var in VARIABLES:
-        sim = np.loadtxt(shot_dir / f"{var}-jorek-{shot}.txt")
-        exp = np.loadtxt(shot_dir / f"{var}-exp-{shot}.txt")
+        sim = np.loadtxt(data_path(f"traces/{shot}/{var}-jorek-{shot}.txt"))
+        exp = np.loadtxt(data_path(f"traces/{shot}/{var}-exp-{shot}.txt"))
         if var != "frad":
             sim[:, 1] = sim[:, 1] / sim[0, 1]
             exp[:, 1] = exp[:, 1] / exp[0, 1]

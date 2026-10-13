@@ -30,7 +30,8 @@ from raysect.optical.material.emitter.homogeneous import HomogeneousVolumeEmitte
 from raysect.optical.observer import PowerPipeline0D
 
 from axuv.cameras import create_observable_world
-from axuv.io import OUTPUT_DIR, PROJECT_ROOT, load_axuv_df
+from axuv.datafiles import data_path
+from axuv.io import OUTPUT_DIR, load_axuv_df
 from axuv.plotting import set_plt_rcparams
 
 matplotlib.use("Agg")
@@ -43,7 +44,6 @@ MAX_WL = 1240.0  # nm
 BANDWIDTH = MAX_WL - MIN_WL  # 1239.75 nm
 PIXEL_SAMPLES = 100_000
 N_PROCESSES = 10
-DATA_DIR = PROJECT_ROOT / "axuv" / "data"
 
 
 # ── Uniform emitter material ──────────────────────────────────────────────────
@@ -104,7 +104,7 @@ def _build_voxel_coords(grid_centres, voxel_map_3d):
 
 def _verify_sector(sector, axuv_df, uniform_mat):
     """Run the uniform-emitter observation for one sector and return results."""
-    rt_path = DATA_DIR / f"raytransfer_{sector}_norefl.h5"
+    rt_path = data_path(f"raytransfer/raytransfer_{sector}_norefl.h5")
     print(f"\n{'=' * 60}")
     print(f"Sector {sector}  —  loading {rt_path.name}")
 

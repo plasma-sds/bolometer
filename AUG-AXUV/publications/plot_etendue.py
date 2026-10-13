@@ -4,18 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from axuv.io import OUTPUT_DIR, AXUV_DATAFILE, PROJECT_ROOT
+from axuv.datafiles import data_path
+from axuv.io import OUTPUT_DIR, AXUV_GEOMETRY_KEY
 from axuv.plotting import set_plt_rcparams
 
 # Update default matplotlib parameters for LaTeX plotting for articles
 set_plt_rcparams()
 
-project_dir = PROJECT_ROOT
-data_dir = project_dir / "axuv" / "data"
 
 # %% Load etendue data
-ETENDUE_PATH_S5 = data_dir / "etendue_S5.h5"
-ETENDUE_PATH_S16 = data_dir / "etendue_S16.h5"
+ETENDUE_PATH_S5 = data_path("geometry/etendue_S5.h5")
+ETENDUE_PATH_S16 = data_path("geometry/etendue_S16.h5")
 with h5py.File(ETENDUE_PATH_S5, "r") as h5f:
     raytraced_etendue_s5 = np.asarray(h5f["raytraced_etendue"])
     raytraced_error_s5 = np.asarray(h5f["raytraced_error"])
@@ -34,6 +33,7 @@ raytraced_error = np.concatenate([raytraced_error_s5, raytraced_error_s16])
 diode_names = np.concatenate([diode_names_s5, diode_names_s16])
 
 # We only need the etendue and the corresponding diode names
+AXUV_DATAFILE = data_path(AXUV_GEOMETRY_KEY)
 df = pd.read_csv(AXUV_DATAFILE, sep=r"\s+", engine="python").drop(
     columns=[
         "chan",

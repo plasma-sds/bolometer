@@ -8,23 +8,21 @@ Two responsivity curves are provided:
   - Degraded (degraded_sensitivity_function): for diodes exposed to high
     radiation doses where the responsivity above ~89.4 eV is reduced
 
-The CSV data files (axuv_sensitivity.csv, degraded_avg.csv) live in
-axuv/data/ and are loaded lazily on first use so that importing this module
-does not crash when the files are unavailable (e.g. during unit tests).
+The CSV data files (data keys responsivity/axuv_sensitivity.csv,
+responsivity/degraded_sensitivity.csv, see axuv.datafiles) are loaded lazily
+on first use so that importing this module does not crash when the files are
+unavailable (e.g. during unit tests).
 
 CSV format: two columns — photon_energy_eV, responsivity_A_per_W
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
+from plasmasds_utility import PlasmasdsUtilityError
 
 from axuv.cameras import WAVELENGTH_BIN_EDGES
-
-# Responsivity data lives alongside the package source in axuv/data/
-_DATA_DIR = Path(__file__).parent / "data"
+from axuv.datafiles import data_path
 
 # Photon energy threshold [eV] below which the nominal and degraded curves
 # are identical.  Above this value the SiO2 entrance window transmittance
@@ -43,11 +41,15 @@ def _load_responsivity() -> None:
     global _sensitivity, _degraded_sensitivity, _worst_estimation
     if _sensitivity is not None:
         return
-    _sensitivity = np.genfromtxt(_DATA_DIR / "axuv_sensitivity.csv", delimiter=",")
-    _degraded_sensitivity = np.genfromtxt(_DATA_DIR / "degraded_sensitivity.csv", delimiter=",")
+    _sensitivity = np.genfromtxt(data_path("responsivity/axuv_sensitivity.csv"), delimiter=",")
+    _degraded_sensitivity = np.genfromtxt(
+        data_path("responsivity/degraded_sensitivity.csv"), delimiter=","
+    )
     try:  # This is not strictly necessary for 99% of the work
-        _worst_estimation = np.genfromtxt(_DATA_DIR / "worst_estimation.csv", delimiter=",")
-    except FileNotFoundError:
+        _worst_estimation = np.genfromtxt(
+            data_path("responsivity/worst_estimation.csv"), delimiter=","
+        )
+    except (FileNotFoundError, PlasmasdsUtilityError):
         _worst_estimation = None
 
 

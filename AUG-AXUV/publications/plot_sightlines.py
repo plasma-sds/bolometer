@@ -4,13 +4,12 @@ First, the cameras are set up in Cherab, and the lines of sight are plotted agai
 Second, the publication figure is created that contains the lines of sight and SPI vectors, LCFS and PFC contours.
 """
 # %%
-import pickle
 import matplotlib.pyplot as plt
 
 import aug_sfutils as sf
 
 from axuv.cameras import create_observable_world
-from axuv.io import OUTPUT_DIR, load_axuv_df, _GC_LINES_PATH
+from axuv.io import OUTPUT_DIR, load_axuv_df, load_gc_d_lines
 from axuv.plotting import set_plt_rcparams, show_camera_lines_of_sight
 from axuv_measurement.geometry import plot_qsurfaces
 
@@ -23,8 +22,7 @@ savepath_png = OUTPUT_DIR / "sightline_comparison.png"
 
 # Load AXUV geometry data and PFC component outlines
 axuv_df = load_axuv_df()
-with open(_GC_LINES_PATH, "rb") as fp:
-    gc_d_lines = pickle.load(fp)
+gc_d_lines = load_gc_d_lines()
 
 # Create Cherab world for setting up cameras
 world, cameras = create_observable_world(sectors=["S16"], axuv_df=axuv_df, cad_mesh=True)

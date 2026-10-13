@@ -5,13 +5,13 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 
-from axuv.io import OUTPUT_DIR, PROJECT_ROOT
+from axuv.datafiles import data_path
+from axuv.io import OUTPUT_DIR
 from axuv.plotting import set_plt_rcparams
 from axuv.responsivity import degraded_sensitivity_function, sensitivity_function, worst_sensitivity
 
 set_plt_rcparams()
 
-axuv_data_dir = PROJECT_ROOT / "axuv" / "data"
 data_dir = OUTPUT_DIR / "1D_data"
 output_dir = OUTPUT_DIR / "1D_plots"
 os.makedirs(output_dir, exist_ok=True)
@@ -121,10 +121,10 @@ print("Saved two-spectra figure to", output_dir)
 savefolder = OUTPUT_DIR / "1D_plots"
 os.makedirs(savefolder, exist_ok=True)
 
-# Data is a DREAM hdf5 output file: axuv/data/dream_output.h5
+# Data is a DREAM hdf5 output file: data key dream/dream_output.h5
 # read file with h5py, get datasets from "eqsys": T_cold, I_p
 # from "grid": t
-with h5py.File(PROJECT_ROOT / "axuv" / "data" / "dream_output.h5", "r") as h5f:
+with h5py.File(data_path("dream/dream_output.h5"), "r") as h5f:
     T_cold = np.asarray(h5f["eqsys"]["T_cold"])
     I_plasma = np.asarray(h5f["eqsys"]["I_p"])
     times = np.asarray(h5f["grid"]["t"]) + 2.3

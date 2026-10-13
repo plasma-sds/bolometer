@@ -24,6 +24,8 @@ dependencies = [
     "shapely",
     "scikit-image",   # axuv_measurement.processing ridge filter
     "pillow",         # publications GIF/figure generation
+    # Data access; pinned to a development commit until the first release (plasmasds_utility#30)
+    "plasmasds-utility @ git+https://github.com/plasma-sds/plasmasds_utility@8b4fc2c518a60070da2158754a6a08e0fcb66036",
 ]
 
 [project.optional-dependencies]

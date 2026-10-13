@@ -30,14 +30,14 @@ AUG-AXUV/                          ← repo root
 │   ├── plasma.py                  ← Cherab spectral emission helpers
 │   ├── responsivity.py            ← AXUV diode responsivity curves
 │   ├── interpolation.py           ← JOREK → poloidal-grid interpolation
-│   ├── io.py                      ← ray-transfer HDF5 loading, path constants,
+│   ├── datafiles.py               ← data keys, local paths via plasmasds_utility
+│   ├── io.py                      ← ray-transfer HDF5 loading, output paths,
 │   │                                 WTH_THRESHOLDS (W_th line levels)
 │   ├── plotting.py                ← visualisation helpers
-│   ├── cad_files.py               ← AUG vessel CAD file paths/helpers
+│   ├── cad_files.py               ← AUG vessel CAD mesh keys/helpers
 │   ├── raytransfer_sensitivity.py ← Stage 1 CLI script (geometry matrix)
 │   ├── calculate_emissions_for_raytransfer.py  ← Stage 2 (plasma emissions)
 │   ├── emission_to_measurement.py ← Stage 3 (synthetic signals)
-│   ├── data/                      ← geometry, JOREK and ray-transfer data
 │   └── shell_scripts/             ← SLURM submission + plotting wrappers
 │                                     (see shell_scripts/run_scripts.md)
 │
@@ -78,9 +78,6 @@ AUG-AXUV/                          ← repo root
 │   └── data/
 │
 ├── output/                        ← generated figures, CSVs, threshold_times.json
-│
-├── aug/                           ← AUG vessel / diagnostic geometry data
-│   ├── vessel/, divertor/, …
 │
 ├── sightline_DREAMoutput_Ne_SPI.py  ← simple LOS model on DREAM SPI output
 └── pyproject.toml                 ← editable-install / packaging config
@@ -134,31 +131,53 @@ This downloads the default OpenADAS rate data. For Ne 9+ lines, see the note und
 
 ### Data files
 
-The input data is not tracked in git (`axuv/data/` and `aug/` are gitignored). Fetching it will be handled by [plasmasds_utility](https://github.com/plasma-sds/plasmasds_utility), which is not yet wired in; until then, the files have to be copied in by hand. Required locations:
+The input data is not tracked in git. It is served by the plasma-sds data server and fetched with [plasmasds_utility](https://github.com/plasma-sds/plasmasds_utility) under the client prefix `bolometer`, with the AUG-AXUV files below `aug-axuv/`.
+The code names each file by its *data key*, the path below `aug-axuv/`, and gets its local path from `axuv.datafiles.data_path(key)`, which downloads the file first if it is not on disk.
 
-| Path | Contents | Used by |
-|---|---|---|
-| `axuv/data/AXUV_LOS_geom.txt` | diode and aperture geometry | `axuv.io`, camera setup (all stages) |
-| `axuv/data/gc_d_lines.obj` | poloidal cross-section outline | `axuv.io`, plotting, tests |
-| `axuv/data/axuv_sensitivity.csv`, `degraded_sensitivity.csv`, `worst_estimation.csv` | AXUV diode responsivity curves | `axuv.responsivity` (Stage 3) |
-| `axuv/data/<shot>/<phase>/input/` | JOREK output files | Stage 1 (`--jorek-file` masking), Stage 2 |
-| `axuv/data/raytransfer_*.h5` | geometry matrices produced by Stage 1 | Stage 2 |
-| `aug/vessel/`, `aug/divertor/`, … | AUG vessel CAD meshes (`.rsm`) | Stage 1 with `--reflections` |
+| Data key | Contents | Tree | Used by |
+|---|---|---|---|
+| `geometry/AXUV_LOS_geom.txt` | diode and aperture geometry | private | `axuv.io`, camera setup (all stages) |
+| `geometry/gc_d_lines.obj` | poloidal cross-section outline | private | `axuv.io.load_gc_d_lines`, plotting |
+| `geometry/etendue_S5.h5`, `geometry/etendue_S16.h5` | ray-traced etendue (Stage 1 product) | private | Stage 3, `plot_etendue.py` |
+| `responsivity/*.csv` | nominal, degraded and worst-case responsivity, error bars | public | `axuv.responsivity` (Stage 3) |
+| `atomic/ne.csv` | Ne line list for Cherab | public | Stage 2, sightline model |
+| `cad/{vessel,divertor,icrh,a_b_coils}/...` | AUG vessel CAD meshes (`.rsm`) | private | Stage 1 with `--reflections` |
+| `raytransfer/raytransfer_{S5,S16}_{refl,norefl}.h5` | geometry matrices produced by Stage 1 | private | Stage 2, publication scripts |
+| `jorek/step02410_out.h5`, `jorek/<shot>/<phase>/stepNNNNN_out.h5` | JOREK output files | private | Stage 1 (`--jorek-file` masking), Stage 2 |
+| `traces/<shot>/{frad,ip,wth}-{exp,jorek}-<shot>.txt` | time traces | private | `plot_time_traces.py` |
+| `dream/dream_output.h5` | DREAM run | public | sightline model, `plot_1D_dream_spectra.py` |
+
+`DATA_TREES` in `axuv/datafiles.py` maps the first folder of a key to its tree.
+Private data needs an SSH key accepted by the data server (`plasmasds_utility.set_ssh_key`); public data is downloaded over HTTPS.
+Local copies are kept in `<data dir>/bolometer/{private,public}/aug-axuv/<key>`, by default under `~/.local/share/plasmasds/`.
+Data copied by hand into the old layout (`axuv/data/` and `aug/`) is placed at the local paths of its keys with `python -m axuv.migrate_data` (hard links, no extra disk space; `--dry-run` shows the mapping, `--copy` copies instead).
+
+The keys on the server are listed in `axuv/data_index.json`, since the utility cannot list server folders. `python -m axuv.fetch_data <key prefixes>` downloads every listed key under the prefixes (`--paths` prints their local paths, one per line, for shell scripts).
+
+Local copies are uploaded to the server with `python -m axuv.publish_data <key prefixes>`, e.g. `python -m axuv.publish_data geometry jorek/40673` (`--dry-run` lists the files and whether each is on the server already). Keys already on the server are skipped; `--replace VERSION` replaces them and keeps the old files as `archive/VERSION/<key>`. Uploads need SSH access, also for public data. After uploading, regenerate the index with `python -m axuv.data_index` and commit it.
+
+The Stage 1 `--jorek-file` and the Stage 2 input file are paths; print the local path of a key with:
+
+```bash
+python -c "from axuv.datafiles import data_path; print(data_path('jorek/step02410_out.h5'))"
+```
 
 ### Environment variables
 
-`axuv.io` reads these optional variables:
+These optional variables are read:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `datadir` | `axuv/data` | root of the input data directory; the workflow does not write there by default |
+| `PLASMASDS_DATA_DIR` | `~/.local/share/plasmasds` | where plasmasds_utility keeps the local copies of the data |
+| `PLASMASDS_SERVER_ACCESS` | `all` (`public` when `CI` is set) | `all`, `public` (no private server), or `local` (no network: local copies only) |
+| `PLASMASDS_QUIET` | unset | when set, the utility's once-per-process notices go to its log only |
 | `AXUV_OUTPUT_DIR` | `output/` in the `AUG-AXUV` folder | root of everything the workflow writes: Stage 1 files, Stage 2 emissions, Stage 3 results, figures |
 | `currentdir` | unset | dataset of a Stage 2 run, e.g. `40673/P1`; used when `--dataset` is not given |
 
 Stage 2 writes to `$AXUV_OUTPUT_DIR/<dataset>/emissions/`, with the dataset given by `--dataset` (or `currentdir`), or to the directory given by `--output-dir`.
 The shell scripts in `axuv/shell_scripts/` put their logs in `$AXUV_OUTPUT_DIR/<dataset>/stdout/`.
 
-The scripts in `axuv/shell_scripts/` hardcode the server path of the checkout in `maindir`; adjust it before use. The parallel submission scripts also need GNU `parallel`.
+The Stage 2 scripts in `axuv/shell_scripts/` fetch their inputs with `python -m axuv.fetch_data` before starting the workers. The parallel submission scripts also need GNU `parallel`.
 
 ### `aug_sfutils` and shotfile access
 
@@ -194,7 +213,7 @@ python axuv/raytransfer_sensitivity.py --sectors S5 S16 \
 
 # Mask voxel grid to actual plasma extent from a JOREK file
 python axuv/raytransfer_sensitivity.py --sectors S5 \
-    --jorek-file data/step02410_out.h5
+    --jorek-file <local path of jorek/step02410_out.h5>
 ```
 
 ### Stage 2 — Plasma emissions
@@ -203,9 +222,9 @@ Interpolates JOREK data onto the voxel grid, evaluates Cherab spectral
 emission models, and folds with the geometry matrix.
 
 ```bash
+# The ray-transfer matrix defaults to the data key raytransfer/raytransfer_S16_norefl.h5
 python axuv/calculate_emissions_for_raytransfer.py \
-    axuv/data/40673/P1/input/step01010_out.h5 \
-    --raytransfer-file axuv/data/raytransfer_S16_norefl.h5 --dataset 40673/P1
+    <local path of jorek/40673/P1/step01010_out.h5> --dataset 40673/P1
 # writes $AXUV_OUTPUT_DIR/40673/P1/emissions/emissions_norefl_lowres_masked_<time>.h5
 ```
 
@@ -315,8 +334,8 @@ am.plot_current(41000, start=2.3, end=2.45)
 ## Tests
 
 Tests live in `tests/` and cover the `axuv` synthetic package only; they
-require Raysect and Cherab but **not** `aug_sfutils`. Some tests load files from
-`axuv/data/` (e.g. `gc_d_lines.obj`), so the data files must be in place.
+require Raysect and Cherab but **not** `aug_sfutils`, and no data files: the
+`axuv.datafiles` tests run plasmasds_utility on a temporary local tree.
 
 ```bash
 pytest tests/

@@ -13,26 +13,30 @@ done
 
 - All with the default resolution of NR=60 and NZ=110. 
 - Note the `nice` and `taskset` commands are machine-specific restrictions.
-- The file in `--jorek-file axuv/data/step02410_out.h5` is used to mask the poloidal cross-section to the plasma cross-section. 
+- The JOREK file given with `--jorek-file` (data key `jorek/step02410_out.h5`) is used to mask the poloidal cross-section to the plasma cross-section. The commands below take its local path from `fetch_data`:
+  ```bash
+  JOREK=$(python -m axuv.fetch_data --paths jorek/step02410_out.h5)
+  ```
+- Stage 1 writes its matrix to `$AXUV_OUTPUT_DIR`. To use it as a Stage 2 input, copy it to the local path of its `raytransfer/` key, upload it with `python -m axuv.publish_data`, and regenerate the index with `python -m axuv.data_index`.
 
 ### S5 reflections
 ```bash
-python axuv/raytransfer_sensitivity.py --sectors S5 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
+python axuv/raytransfer_sensitivity.py --sectors S5 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file $JOREK --observe-processes 10
 ```
 
 ### S16 reflections
 ```bash
-python axuv/raytransfer_sensitivity.py --sectors S16 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
+python axuv/raytransfer_sensitivity.py --sectors S16 --reflections --pixel-samples 100000 --ray-max-depth 5 --jorek-file $JOREK --observe-processes 10
 ```
 
 ### S5 no reflections
 ```bash
-python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
+python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file $JOREK --observe-processes 10
 ```
 
 ### S16 no reflections
 ```bash
-python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10
+python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file $JOREK --observe-processes 10
 ```
 
 ### S5 etendue
@@ -54,25 +58,26 @@ python publications/verify_uniform_emitter.py --sectors S16 --processes 10
 
 ### No reflections
 ```bash
-nice -n 5 taskset -c 0-9 python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10 --resolution-r 120 --resolution-z 220 -o axuv/data/raytransfer_S5_highres_norefl.h5
+nice -n 5 taskset -c 0-9 python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file $JOREK --observe-processes 10 --resolution-r 120 --resolution-z 220 -o output/raytransfer_S5_highres_norefl.h5
 
-nice -n 5 taskset -c 10-19 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10 --resolution-r 120 --resolution-z 220 -o axuv/data/raytransfer_S16_highres_norefl.h5
+nice -n 5 taskset -c 10-19 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file $JOREK --observe-processes 10 --resolution-r 120 --resolution-z 220 -o output/raytransfer_S16_highres_norefl.h5
 ```
 
 ### Reflections
 ```bash
-nice -n 5 taskset -c 20-29 python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10 --resolution-r 120 --resolution-z 220 --reflections -o axuv/data/raytransfer_S5_highres_refl.h5
+nice -n 5 taskset -c 20-29 python axuv/raytransfer_sensitivity.py --sectors S5 --jorek-file $JOREK --observe-processes 10 --resolution-r 120 --resolution-z 220 --reflections -o output/raytransfer_S5_highres_refl.h5
 
-nice -n 5 taskset -c 30-39 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file axuv/data/step02410_out.h5 --observe-processes 10 --resolution-r 120 --resolution-z 220 --reflections -o axuv/data/raytransfer_S16_highres_refl.h5
+nice -n 5 taskset -c 30-39 python axuv/raytransfer_sensitivity.py --sectors S16 --jorek-file $JOREK --observe-processes 10 --resolution-r 120 --resolution-z 220 --reflections -o output/raytransfer_S16_highres_refl.h5
 ```
 
 ## Emissions (stage 2) on a local machine
 
-`run_emissions_local.sh` is the local counterpart of `parallel_submit_raytransfer.sh`. It runs `calculate_emissions_for_raytransfer.py` on every JOREK file in `axuv/data/<shot>/<plane>/input/` for the four datasets, P1 with the S16 matrix and P45 with the S5 matrix. The argument selects the lowres matrix variant, `raytransfer_<sector>_norefl.h5` or `raytransfer_<sector>_refl.h5`.
+`run_emissions_local.sh` is the local counterpart of `parallel_submit_raytransfer.sh`. It runs `calculate_emissions_for_raytransfer.py` on every JOREK file of the four datasets (data keys `jorek/<shot>/<plane>/`, listed in `axuv/data_index.json`), P1 with the S16 matrix and P45 with the S5 matrix. The argument selects the lowres matrix variant, `raytransfer_<sector>_norefl.h5` or `raytransfer_<sector>_refl.h5`.
 ```bash
 axuv/shell_scripts/run_emissions_local.sh norefl 8
 axuv/shell_scripts/run_emissions_local.sh refl 8
 ```
+- All inputs and the matrix are fetched with `python -m axuv.fetch_data` before the workers start, so no worker downloads anything.
 - The second argument is the number of parallel jobs (default 8). Each process peaks at about 1.7 GB of memory, so size it by free memory.
 - Results go to `$AXUV_OUTPUT_DIR/<shot>/<plane>/emissions/emissions_<variant>_lowres_masked_<time>.h5` (default `AXUV_OUTPUT_DIR`: `output/` in the `AUG-AXUV` folder), logs to `$AXUV_OUTPUT_DIR/<shot>/<plane>/stdout/output_<variant>_<file>.txt`.
 - The neon rates come from the Cherab OpenADAS repository in `~/.cherab`. If it lacks the Ne data, every run fails with `Requested PEC rate ... is not available`; copy the repository from a machine where it is populated, or populate it as described in the main readme.

@@ -3,20 +3,19 @@ import bisect
 import numpy as np
 import matplotlib.pyplot as plt
 
-from axuv.io import OUTPUT_DIR, PROJECT_ROOT
+from axuv.datafiles import data_path
+from axuv.io import OUTPUT_DIR
 from axuv.plotting import set_plt_rcparams
 
 set_plt_rcparams()
 
-project_dir = PROJECT_ROOT
-data_dir = project_dir / "axuv" / "data"
 output_dir = OUTPUT_DIR
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # %% Load data
-nominal = np.loadtxt(data_dir / "axuv_sensitivity.csv", delimiter=",")
-degraded = np.loadtxt(data_dir / "degraded_sensitivity.csv", delimiter=",")
-errorbars = np.loadtxt(data_dir / "degraded_errorbars.csv", delimiter=",")
+nominal = np.loadtxt(data_path("responsivity/axuv_sensitivity.csv"), delimiter=",")
+degraded = np.loadtxt(data_path("responsivity/degraded_sensitivity.csv"), delimiter=",")
+errorbars = np.loadtxt(data_path("responsivity/degraded_errorbars.csv"), delimiter=",")
 
 # errorbars has pairs of rows per degraded point: upper bound then lower bound
 upper_error = errorbars[0::2, 1]
@@ -65,8 +64,9 @@ worst_estimation[in_significantly_degraded_range] = 0.01 + incline * x_temp[in_s
 # In measured range, take the lower errors and interpolate in between
 worst_estimation[in_measured_range] = lower_error_interp[in_measured_range]
 
-# Save x_full and worst_estimation as two columns in csv
-np.savetxt(data_dir / "worst_estimation.csv", np.column_stack((x_full, worst_estimation)), delimiter=",")
+# Save x_full and worst_estimation as two columns in csv. Copy it to the data key
+# responsivity/worst_estimation.csv (and upload it) to make it an input of the workflow.
+np.savetxt(output_dir / "worst_estimation.csv", np.column_stack((x_full, worst_estimation)), delimiter=",")
 
 # %% Plot
 fig, ax = plt.subplots(figsize=(7, 4.5))

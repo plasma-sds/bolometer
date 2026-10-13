@@ -32,10 +32,11 @@ cameras        Camera hardware constants, sector → camera mapping
 plasma         Per-voxel emission function used in Stage 2.
 responsivity   AXUV spectral responsivity curves and weighted-power
                integration (get_weighted_power).
-io             Environment-variable path constants, AXUV geometry DataFrame,
-               and HDF5 data-file loading helpers.
-               NOTE: io.py loads files on import — import it explicitly
-               rather than relying on package-level re-exports.
+datafiles      Data keys and their local paths, fetched through
+               plasmasds_utility (data_path).
+io             Output path constants, AXUV geometry DataFrame, PFC contours
+               and HDF5 data-file loading helpers; data files are read on
+               first use, not at import.
 plotting       Matplotlib visualisation helpers for interpolated fields,
                diode lines of sight, and voxel emission maps.
 
@@ -47,8 +48,8 @@ Quick start
 
     # Heavy scene construction — explicit submodule import
     from axuv.cameras import create_observable_world
-    from axuv.io import AXUV_DF
-    world, cameras = create_observable_world(["S16"], AXUV_DF)
+    from axuv.io import load_axuv_df
+    world, cameras = create_observable_world(["S16"], load_axuv_df())
 
     # Responsivity (loads CSV files lazily on first call)
     from axuv.responsivity import get_weighted_power
