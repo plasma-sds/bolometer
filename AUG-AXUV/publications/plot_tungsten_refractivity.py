@@ -1,30 +1,30 @@
 # %%
 import json
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import raysect
 
-from axuv.io import OUTPUT_DIR, PROJECT_ROOT
+from axuv.datafiles import data_path
+from axuv.io import OUTPUT_DIR
 from axuv.plotting import set_plt_rcparams
-from publications.plot_sightlines import line
 
 set_plt_rcparams()
 
-project_dir = PROJECT_ROOT
-data_dir = project_dir / "axuv" / "data"
 output_dir = OUTPUT_DIR
 output_dir.mkdir(parents=True, exist_ok=True)
 
-# %% Load data from data_dir / tungsten_refractivity_data.json
-with open(data_dir / "tungsten_refractivity_data.json") as f:
+# %% Load the tungsten n/k data shipped with Raysect (also used by axuv.cad_files)
+with open(Path(raysect.__file__).parent / "optical/library/metal/data/tungsten.json") as f:
     data = json.load(f)
     wavelength = np.array(data["wavelength"])
     energy = 1240.0 / wavelength
     extinction = np.array(data["extinction"])
     refractive_index = np.array(data["index"])
 
-nominal = np.loadtxt(data_dir / "axuv_sensitivity.csv", delimiter=",")
-degraded = np.loadtxt(data_dir / "degraded_sensitivity.csv", delimiter=",")
+nominal = np.loadtxt(data_path("responsivity/axuv_sensitivity.csv"), delimiter=",")
+degraded = np.loadtxt(data_path("responsivity/degraded_sensitivity.csv"), delimiter=",")
 
 
 # %% plot the data with logarithmic energy (eV) x-axis
