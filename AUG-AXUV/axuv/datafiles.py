@@ -81,12 +81,21 @@ def data_path(key: str, *, update: str = "never") -> Path:
     return _CLIENT.get(server_key(key), private=is_private(key), update=update)
 
 
+def on_server(key: str) -> bool:
+    """Return whether *key* is on the server, in its tree.
+
+    :raises plasmasds_utility.TransferError: if the server cannot be asked
+        (AuthError without SSH access for a private key); never False then
+    """
+    return _CLIENT.on_server(server_key(key), private=is_private(key))
+
+
 def upload(key: str, *, archive_to: str | None = None) -> None:
     """Upload the local copy of *key* to its tree on the server.
 
     :param archive_to: key (below aug-axuv/) to keep the file currently on the
                        server under; without it, a key already on the server is
-                       refused with a TransferError
+                       refused with plasmasds_utility.AlreadyOnServerError
     """
     _CLIENT.upload(
         server_key(key),

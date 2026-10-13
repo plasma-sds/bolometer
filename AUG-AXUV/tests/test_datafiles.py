@@ -65,6 +65,22 @@ def test_data_path_passes_tree(monkeypatch, key, private):
     assert calls == [("aug-axuv/" + key, private, "if_newer")]
 
 
+@pytest.mark.parametrize(
+    "key, private", [("cad/vessel/a.rsm", True), ("atomic/ne.csv", False)]
+)
+def test_on_server_passes_tree(monkeypatch, key, private):
+    calls = []
+
+    class FakeClient:
+        def on_server(self, server_key, *, private):
+            calls.append((server_key, private))
+            return True
+
+    monkeypatch.setattr(datafiles, "_CLIENT", FakeClient())
+    assert datafiles.on_server(key) is True
+    assert calls == [("aug-axuv/" + key, private)]
+
+
 # ── local copies through the real utility ─────────────────────────────────────
 def test_local_path_layout(data_dir):
     assert local_path("cad/vessel/a.rsm") == data_dir / "bolometer/private/aug-axuv/cad/vessel/a.rsm"
