@@ -16,7 +16,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 maindir="$REPO_ROOT/axuv"
-datadir="$maindir/data"
 # Stage 2 writes to $AXUV_OUTPUT_DIR/<dataset>/emissions/, logs go to <dataset>/stdout/
 export AXUV_OUTPUT_DIR="${AXUV_OUTPUT_DIR:-$REPO_ROOT/output}"
 python="$REPO_ROOT/.venv/bin/python"
@@ -24,15 +23,20 @@ python="$REPO_ROOT/.venv/bin/python"
 
 export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 export MPLBACKEND="Agg"
+# One notice per Stage 2 process would flood the logs; keep them in the utility's log
+export PLASMASDS_QUIET=1
 
 # <dataset> <sector of its ray-transfer matrix>
 for pair in "40673/P1 S16" "41007/P1 S16" "40673/P45 S5" "41007/P45 S5"; do
     read -r currentdir sector <<< "$pair"
     logdir="$AXUV_OUTPUT_DIR/$currentdir/stdout"
     mkdir -p "$logdir"
-    matrix="$datadir/raytransfer_${sector}_${variant}.h5"
+    # Fetch everything once, before the workers start, so none of them downloads
+    matrix=$("$python" -m axuv.fetch_data --paths "raytransfer/raytransfer_${sector}_${variant}.h5") || exit 1
+    inputs=$("$python" -m axuv.fetch_data --paths "jorek/$currentdir") || exit 1
+    "$python" -m axuv.fetch_data atomic geometry || exit 1
     echo "$(date +%T) working on $currentdir with $(basename "$matrix")"
-    ls "$datadir/$currentdir/input" | parallel -j "$jobs" --halt never \
-        "nice -n 5 $python -u $maindir/calculate_emissions_for_raytransfer.py '$datadir/$currentdir/input/{}' --raytransfer-file $matrix --dataset $currentdir &> $logdir/output_${variant}_{}.txt"
+    echo "$inputs" | parallel -j "$jobs" --halt never \
+        "nice -n 5 $python -u $maindir/calculate_emissions_for_raytransfer.py {} --raytransfer-file $matrix --dataset $currentdir &> $logdir/output_${variant}_{/}.txt"
     echo "$(date +%T) $currentdir done, exit $?, $(ls "$AXUV_OUTPUT_DIR/$currentdir/emissions" | grep -c "emissions_${variant}_") ${variant} output files"
 done
