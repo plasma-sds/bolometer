@@ -24,7 +24,8 @@ Usage
     python raytransfer_sensitivity.py --sectors S5 S16 --pixel-samples 500000
 
     # Sector 5 masked to the JOREK plasma extent:
-    python raytransfer_sensitivity.py --sectors S5 --jorek-file data/step02410_out.h5
+    # (the local path of the data key jorek/step02410_out.h5, see axuv.datafiles)
+    python raytransfer_sensitivity.py --sectors S5 --jorek-file <path>/step02410_out.h5
 
 Output
 ------
