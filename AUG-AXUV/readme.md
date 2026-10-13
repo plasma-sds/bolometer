@@ -152,7 +152,9 @@ Private data needs an SSH key accepted by the data server (`plasmasds_utility.se
 Local copies are kept in `<data dir>/bolometer/{private,public}/aug-axuv/<key>`, by default under `~/.local/share/plasmasds/`.
 Data copied by hand into the old layout (`axuv/data/` and `aug/`) is placed at the local paths of its keys with `python -m axuv.migrate_data` (hard links, no extra disk space; `--dry-run` shows the mapping, `--copy` copies instead).
 
-Local copies are uploaded to the server with `python -m axuv.publish_data <key prefixes>`, e.g. `python -m axuv.publish_data geometry jorek/40673` (`--dry-run` lists the files). Keys already on the server are skipped; `--replace VERSION` replaces them and keeps the old files as `archive/VERSION/<key>`. Uploads need SSH access, also for public data.
+The keys on the server are listed in `axuv/data_index.json`, since the utility cannot list server folders. `python -m axuv.fetch_data <key prefixes>` downloads every listed key under the prefixes (`--paths` prints their local paths, one per line, for shell scripts).
+
+Local copies are uploaded to the server with `python -m axuv.publish_data <key prefixes>`, e.g. `python -m axuv.publish_data geometry jorek/40673` (`--dry-run` lists the files). Keys already on the server are skipped; `--replace VERSION` replaces them and keeps the old files as `archive/VERSION/<key>`. Uploads need SSH access, also for public data. After uploading, regenerate the index with `python -m axuv.data_index` and commit it.
 
 The Stage 1 `--jorek-file` and the Stage 2 input file are paths; print the local path of a key with:
 
@@ -175,7 +177,7 @@ These optional variables are read:
 Stage 2 writes to `$AXUV_OUTPUT_DIR/<dataset>/emissions/`, with the dataset given by `--dataset` (or `currentdir`), or to the directory given by `--output-dir`.
 The shell scripts in `axuv/shell_scripts/` put their logs in `$AXUV_OUTPUT_DIR/<dataset>/stdout/`.
 
-The scripts in `axuv/shell_scripts/` still take their JOREK inputs and ray-transfer matrices from `axuv/data/` (`datadir`), and the cluster scripts hardcode the server path of the checkout in `maindir`; adjust them before use. The parallel submission scripts also need GNU `parallel`.
+The Stage 2 scripts in `axuv/shell_scripts/` fetch their inputs with `python -m axuv.fetch_data` before starting the workers. The parallel submission scripts also need GNU `parallel`.
 
 ### `aug_sfutils` and shotfile access
 
