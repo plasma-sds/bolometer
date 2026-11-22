@@ -341,6 +341,15 @@ require Raysect and Cherab but **not** `aug_sfutils`, and no data files: the
 pytest tests/
 ```
 
+Tests against the data server are opt-in. They use the SSH key saved with `plasmasds_utility.set_ssh_key`:
+
+```bash
+pytest tests/ -m server         # download into a temporary data folder (read only)
+pytest tests/ -m server_write   # upload, refuse and archive small test files in the public tree
+```
+
+The server never deletes files, so the `server_write` files stay in `public_html/bolometer/aug-axuv/test_dataset/server_checks/` and `public_html/bolometer/aug-axuv/archive/` until removed by hand.
+
 ---
 
 ## Notes and caveats

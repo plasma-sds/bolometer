@@ -43,3 +43,11 @@ include = ["axuv*"]
 dev = [
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+# Tests that talk to the plasma-sds data server are opt-in
+addopts = ["-m", "not server and not server_write"]
+markers = [
+    "server: downloads from the data server; run with -m server (private keys need SSH access)",
+    "server_write: uploads test files to the public tree of the data server; run with -m server_write",
+]

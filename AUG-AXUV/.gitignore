@@ -1,6 +1,7 @@
 # Excluded directories. Data directories can be symlinks, so no trailing slash.
 /axuv/data
 /aug
+/output
 output/
 *plots/
 other/
