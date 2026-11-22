@@ -65,15 +65,17 @@ print("Saved eta_eff time evolution")
 
 # %% Figure 2: spectra at two time steps
 
+# zorder: the 2.301 s spectrum is drawn on top so its Ly-alpha peak at 10.2 eV stays
+# visible where the 2.3035 s spectrum has a peak at the same energy
 _SPECTRA = [
-    (2.3010, "blue",    r"$t = 2.301\,\mathrm{s}$"),
-    (2.3035, "magenta", r"$t = 2.3035\,\mathrm{s}$"),
+    (2.3010, "blue",    r"$t = 2.301\,\mathrm{s}$ (fragment arrival)", 3),
+    (2.3035, "magenta", r"$t = 2.3035\,\mathrm{s}$ (TQ)", 2),
 ]
 
 fig, ax = plt.subplots(figsize=(8, 4.5))
 ax2 = ax.twinx()
 
-for t_val, color, label in _SPECTRA:
+for t_val, color, label, zorder in _SPECTRA:
     fname = data_dir / f"highres_{t_val:.4f}s.h5"
     with h5py.File(fname, "r") as h5f:
         power = np.asarray(h5f["spectral_power_mean"])
@@ -90,7 +92,7 @@ for t_val, color, label in _SPECTRA:
     energies = np.append(energies, max_energy)
     power = np.append(power, power[-1])
 
-    ax.step(energies, power, where="mid", color=color, label=label, linewidth=1)
+    ax.step(energies, power, where="mid", color=color, label=label, linewidth=1, zorder=zorder)
 
 ax.set_yscale("log")
 
@@ -103,7 +105,9 @@ ax.set_xscale("log")
 ax.set_xlim(1, 5e3)
 ax.set_ylim(1e-4, 1e9)
 ax.set_xlabel("Photon energy (eV)")
-ax.set_ylabel(r"Spectral power (W eV$^{-1}$)")
+# spectral_power_mean comes from a Raysect SightLine with sensitivity 1 and a
+# SpectralPowerPipeline0D, i.e. spectral radiance per nm (not per eV)
+ax.set_ylabel(r"Spectral radiance (W m$^{-2}$ sr$^{-1}$ nm$^{-1}$)")
 ax2.set_ylabel(r"Responsivity (A W$^{-1}$)")
 
 lines1, labels1 = ax.get_legend_handles_labels()
