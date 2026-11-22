@@ -81,16 +81,36 @@ err2 = ax.errorbar(
     color="r",
     label="Measured (degraded)",
 )
+# Measured points below the lowest point used for the degraded responsivity.
+# Digitised from Bernert et al. 2014, Rev. Sci. Instrum. 85 033503, figures 4 and 5
+# (the two figures agree where both show a point). The 50 eV point is left out: its
+# average lies above the published axis (> 0.5 A/W).
+# Bernert et al. attribute the rise below 70 eV to the large error bars.
+# Bars that leave the plot range run off the axis.
+Y_TOP = 0.55
+low_e = np.array([60.0, 70.0, 80.0])
+low_val = np.array([0.275, 0.218, 0.214])
+low_lower = np.array([-0.1, -0.1, 0.131])            # below 0: bar runs off the axis
+low_upper = np.array([Y_TOP + 0.1, 0.450, 0.297])  # above Y_TOP: bar runs off the axis
+err_low = ax.errorbar(
+    low_e, low_val,
+    yerr=np.array([low_val - low_lower, low_upper - low_val]),
+    fmt="s",
+    markersize=5,
+    capsize=4,
+    color="gray",
+    label="Measured, not used",
+)
 line3, = ax.plot(x_full, worst_estimation, linestyle="-.", color="b", label="Worst estimation", zorder=20)
 
 ax.set_xscale("log")
 ax.set_xlabel("Energy [eV]")
 ax.set_ylabel("Sensitivity [A/W]")
 
-ax.set_ylim(0, )
+ax.set_ylim(0, Y_TOP)
 ax.set_xlim(1, )
 
-ax.legend(handles=[line1, line2, err2, line3], fontsize="small")
+ax.legend(handles=[line1, line2, err2, err_low, line3], fontsize="small", loc="upper right")
 
 plt.savefig(output_dir / "degraded_sensitivity.png", dpi=300, bbox_inches="tight")
 plt.savefig(output_dir / "degraded_sensitivity.pdf", format="PDF", bbox_inches="tight")
