@@ -92,6 +92,9 @@ for t_val, color, label, zorder in _SPECTRA:
     energies = np.append(energies, max_energy)
     power = np.append(power, power[-1])
 
+    # per nm -> per eV: |d lambda / dE| = hc / E^2 = 1239.84 / E^2 nm/eV
+    power = power * 1239.84 / energies**2
+
     ax.step(energies, power, where="mid", color=color, label=label, linewidth=1, zorder=zorder)
 
 ax.set_yscale("log")
@@ -103,11 +106,12 @@ ax2.plot(energies, R, color="k", linestyle="--", linewidth=2,
 
 ax.set_xscale("log")
 ax.set_xlim(1, 5e3)
-ax.set_ylim(1e-4, 1e9)
+ax.set_ylim(1e-3, 1e8)
 ax.set_xlabel("Photon energy (eV)")
-# spectral_power_mean comes from a Raysect SightLine with sensitivity 1 and a
-# SpectralPowerPipeline0D, i.e. spectral radiance per nm (not per eV)
-ax.set_ylabel(r"Spectral radiance (W m$^{-2}$ sr$^{-1}$ nm$^{-1}$)")
+# spectral_power_mean comes from a Raysect SightLine with the default sensitivity
+# (etendue) of 1 m^2 sr and a SpectralPowerPipeline0D (W/nm), converted to W/eV above;
+# the figure caption states the unit etendue
+ax.set_ylabel(r"Spectral power (W eV$^{-1}$)")
 ax2.set_ylabel(r"Responsivity (A W$^{-1}$)")
 
 lines1, labels1 = ax.get_legend_handles_labels()
