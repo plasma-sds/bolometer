@@ -68,6 +68,7 @@ AUG-AXUV/                          ← repo root
 │   ├── plot_sensitivity_matrices.py, plot_etendue.py, plot_sightlines.py,
 │   │   plot_degraded_sensitivity.py, compare_highres_lowres.py,
 │   │   plot_1D_dream_spectra.py, verify_uniform_emitter.py
+│   └── sightline_DREAMoutput_Ne_SPI.py  ← 1D LOS model on DREAM SPI output
 │
 ├── measurement_utils/             ← scripts and calibration files for
 │   │                                 working with experimental data
@@ -79,7 +80,6 @@ AUG-AXUV/                          ← repo root
 │
 ├── output/                        ← generated figures, CSVs, threshold_times.json
 │
-├── sightline_DREAMoutput_Ne_SPI.py  ← simple LOS model on DREAM SPI output
 └── pyproject.toml                 ← editable-install / packaging config
 ```
 
@@ -121,7 +121,7 @@ Both methods install `axuv` and `axuv_measurement` in editable mode, which is th
 
 ### Atomic data (Cherab / OpenADAS)
 
-Stage 2 and `sightline_DREAMoutput_Ne_SPI.py` evaluate emission with `cherab.openadas.OpenADAS`, which reads a local atomic-data repository (`~/.cherab/openadas/repository`). Install it once per user and machine after installing the package:
+Stage 2 and `publications/sightline_DREAMoutput_Ne_SPI.py` evaluate emission with `cherab.openadas.OpenADAS`, which reads a local atomic-data repository (`~/.cherab/openadas/repository`). Install it once per user and machine after installing the package:
 
 ```bash
 python -m axuv.atomic

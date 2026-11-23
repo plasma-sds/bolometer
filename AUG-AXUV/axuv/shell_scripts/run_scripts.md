@@ -5,7 +5,7 @@ Forced locale to `C` so that the dots survive in the numbers.
 ```bash
 for time in $(LC_ALL=C seq -f "%.4f" 2.3000 0.0005 2.3100); do
     echo "=== Observing at t=${time} s ==="
-    python sightline_DREAMoutput_Ne_SPI.py "$time" --pickle
+    python publications/sightline_DREAMoutput_Ne_SPI.py "$time" --pickle
 done
 ```
 
