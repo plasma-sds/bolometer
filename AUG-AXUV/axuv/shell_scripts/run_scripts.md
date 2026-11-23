@@ -80,7 +80,7 @@ axuv/shell_scripts/run_emissions_local.sh refl 8
 - All inputs and the matrix are fetched with `python -m axuv.fetch_data` before the workers start, so no worker downloads anything.
 - The second argument is the number of parallel jobs (default 8). Each process peaks at about 1.7 GB of memory, so size it by free memory.
 - Results go to `$AXUV_OUTPUT_DIR/<shot>/<plane>/emissions/emissions_<variant>_lowres_masked_<time>.h5` (default `AXUV_OUTPUT_DIR`: `output/` in the `AUG-AXUV` folder), logs to `$AXUV_OUTPUT_DIR/<shot>/<plane>/stdout/output_<variant>_<file>.txt`.
-- The neon rates come from the Cherab OpenADAS repository in `~/.cherab`. If it lacks the Ne data, every run fails with `Requested PEC rate ... is not available`; copy the repository from a machine where it is populated, or populate it as described in the main readme.
+- The neon lines come from the Cherab OpenADAS repository in `~/.cherab`. If it lacks the Ne data, the runs warn `No excitation PEC data for Ne...` and leave out the line radiation; install it with `python -m axuv.atomic` as described in the main readme.
 - With 8 jobs, one variant takes about 30 min for all 402 files on a 16-core laptop.
 
 Afterwards, `plot_and_save_synthetic_measurements.sh` (below) processes every variant found in the `emissions/` directories.
