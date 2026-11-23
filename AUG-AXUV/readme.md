@@ -129,7 +129,9 @@ python -m axuv.atomic
 
 This runs Cherab's `populate()` for the default Open-ADAS data and adds the Ne PEC files (`pec96#ne_pju#ne0` to `ne9`) listed in `ADF15_FILES` in `axuv/atomic.py`, which `populate()` leaves out. Downloads are cached in `_download_cache/` inside the repository, so a second run does not download again. On a machine without internet access, copy `~/.cherab/openadas/repository` from another machine, or point `--adas-path` at a local copy of the Open-ADAS file tree.
 
-The spectral lines are taken from the installed repository. `axuv.atomic.line_models(plasma)` adds an excitation and a recombination line model for every transition with PEC data, for each species in the plasma composition; species without data are skipped, with a warning for ions that still have bound electrons. To add lines of another element, add its ADF15 files to `ADF15_FILES` and run the install again.
+The spectral lines are taken from the installed repository. `axuv.atomic.line_models(plasma)` adds an excitation and a recombination line model for every transition with PEC data, for each species in the plasma composition. When an ion with bound electrons has no PEC data or no wavelengths, `line_models` runs the install for it (downloading if needed) and raises an error naming every ion still missing data afterwards, so a run never continues without the line radiation of a species. To add lines of another element, add its ADF15 files to `ADF15_FILES`.
+
+The install works around two Cherab 1.5 bugs: Cherab downloads over `http://`, which Open-ADAS answers with 404, and it writes some thermal charge-exchange data to the default repository even when another one is given.
 
 ### Data files
 
