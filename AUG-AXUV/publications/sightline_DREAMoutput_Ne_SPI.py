@@ -19,7 +19,7 @@ from cherab.core.atomic import deuterium, neon
 from cherab.core.model import Bremsstrahlung
 from cherab.openadas import OpenADAS
 
-from axuv.atomic import install_atomic_data, line_models
+from axuv.atomic import add_variant_argument, install_atomic_data, line_models
 from axuv.datafiles import data_path
 from axuv.io import OUTPUT_DIR
 
@@ -70,6 +70,7 @@ def _parse_args():
         "--download-adas", action="store_true",
         help="Install the Open-ADAS data (axuv.atomic.install_atomic_data) before simulation.",
     )
+    add_variant_argument(parser)
     return parser.parse_args()
 
 
@@ -162,7 +163,7 @@ if __name__ == "__main__":
         *ne_species,
     ]
 
-    plasma.models = [*line_models(plasma), Bremsstrahlung()]
+    plasma.models = [*line_models(plasma, variants=args.pec_variant), Bremsstrahlung()]
 
     # Observe
     print("Observing the radiation spectrum along the LOS...")
