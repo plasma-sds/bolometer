@@ -9,14 +9,14 @@ description = "Synthetic diagnostic and measurement analysis for the ASDEX Upgra
 readme = "readme.md"
 authors = [{ name = "Ferenc Lengyel", email = "dev@lengyelf.eu" }]
 license = "MIT"
-# cherab 1.5 pins raysect 0.8.1 and numpy<2, which ship wheels only up to cp312.
-requires-python = ">=3.12,<3.13"
+# Cherab 1.6 and Raysect 0.9.1 ship wheels for cp39 to cp314.
+requires-python = ">=3.14"
 
 # Runtime dependencies shared by both shipped packages (axuv + axuv_measurement).
 dependencies = [
-    "raysect==0.8.1.*",
-    "cherab>=1.5,<1.6",
-    "numpy<2",
+    "raysect==0.9.1.*",
+    "cherab>=1.6,<1.7",
+    "numpy>=2,<2.5",  # aug_sfutils 0.9.3 uses np.chararray, removed in NumPy 2.5
     "scipy",
     "pandas",
     "h5py",
@@ -29,9 +29,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Experimental analysis stack; reading shotfiles needs AUG shotfile server access
+# Experimental analysis stack; reading shotfiles needs AUG shotfile server access.
+# aug_sfutils is no longer on the PyPI index; the 0.9.3 wheel is still served at its file URL.
 measurement = [
-    "aug_sfutils",
+    "aug_sfutils @ https://files.pythonhosted.org/packages/e4/a8/b7eb8eaa37d7696372714cc390fcb8ac97bd7a411c26d3e6e02a12707e60/aug_sfutils-0.9.3-py3-none-any.whl",
 ]
 
 [tool.setuptools.packages.find]

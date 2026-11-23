@@ -65,13 +65,7 @@ def test_available_transitions_isotope_uses_element(repo):
     assert available_transitions(deuterium, 0, "excitation", repo) == [(2, 1), (3, 2)]
 
 
-def test_line_models_needs_next_charge_for_recombination(repo, monkeypatch):
-    # Cherab 1.5 line models expose no .line attribute; record the Line objects instead
-    lines = []
-    import axuv.atomic as atomic
-    original = atomic.Line
-    monkeypatch.setattr(atomic, "Line", lambda *a: lines.append(a) or original(*a))
-
+def test_line_models_needs_next_charge_for_recombination(repo):
     models = line_models(_plasma(repo, [(deuterium, 0), (neon, 8), (neon, 9)]))
 
     kinds = [type(m) for m in models]
@@ -79,7 +73,9 @@ def test_line_models_needs_next_charge_for_recombination(repo, monkeypatch):
     # Ne9: no Ne10, so excitation only
     assert kinds.count(RecombinationLine) == 0
     assert kinds.count(ExcitationLine) == 4
-    assert {(e.symbol, c) for e, c, _ in lines} == {("D", 0), ("Ne", 8), ("Ne", 9)}
+    assert {(m.line.element.symbol, m.line.charge) for m in models} == {
+        ("D", 0), ("Ne", 8), ("Ne", 9)
+    }
 
     models = line_models(_plasma(repo, [(deuterium, 0), (deuterium, 1), (neon, 9), (neon, 10)]))
     kinds = [type(m) for m in models]
@@ -161,12 +157,13 @@ def test_install_atomic_data_calls(tmp_path, monkeypatch):
                         lambda *a, **kw: calls.append(("adf15", a, kw)))
     atomic.install_atomic_data(repository_path=str(tmp_path), adas_path="/adas")
     expected_kw = {"download": True, "repository_path": str(tmp_path), "adas_path": "/adas"}
-    assert calls[0] == ("populate", expected_kw)
-    adf15 = [c[1] for c in calls[1:]]
+    # populate() runs last, so its NIST H0 wavelengths win over the ADF15 file's
+    assert calls[-1] == ("populate", expected_kw)
+    adf15 = [c[1] for c in calls[:-1]]
     assert adf15 == [(hydrogen, 0, "adf15/pec12#h/pec12#h_pju#h0.dat")] + [
         (neon, q, f"adf15/pec96#ne/pec96#ne_pju#ne{q}.dat") for q in range(10)
     ]
-    assert all(c[2] == expected_kw for c in calls[1:])
+    assert all(c[2] == expected_kw for c in calls[:-1])
 
 
 def test_thermal_cx_goes_to_repository_path(monkeypatch):
