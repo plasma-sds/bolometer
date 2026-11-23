@@ -1,7 +1,6 @@
 # This script is used for calculating emissions for the cross-section of AUG
 
 import argparse
-import csv
 import os
 import warnings
 from pathlib import Path
@@ -9,14 +8,9 @@ from pathlib import Path
 import cherab.core.atomic.elements as elements
 import h5py
 import numpy as np
-from cherab.core import Line, Maxwellian, Plasma, Species
+from cherab.core import Maxwellian, Plasma, Species
 from cherab.core.math import AxisymmetricMapper
-from cherab.core.model import (
-    Bremsstrahlung,
-    ExcitationLine,
-    GaussianLine,
-    RecombinationLine,
-)
+from cherab.core.model import Bremsstrahlung
 from cherab.openadas import OpenADAS
 from cherab.tools.primitives import axisymmetric_mesh_from_polygon
 from raysect.core import Vector3D
@@ -37,6 +31,7 @@ from axuv.interpolation import (
     POLOIDAL_ZMIN,
     interpolate_parameters,
 )
+from axuv.atomic import line_models
 from axuv.datafiles import data_path
 from axuv.io import emissions_output_dir, load_axuv_df
 from axuv.plasma import emission_function_3d
@@ -298,33 +293,13 @@ if __name__ == "__main__":
         dist = Maxwellian(density, e_temperature, zero_velocity, neon_mass)
         neon_species.append(Species(elements.neon, i, dist))
 
-    ##############################################################
-    # Get Neon lines from Photon Emissivity Coefficients datafiles
-    ##############################################################
-    neon_lines = []
-    with open(data_path("atomic/ne.csv")) as f:
-        reader = csv.reader(f)
-        for row in reader:
-            i, part1, part2 = row
-
-            neon_lines.append(
-                ExcitationLine(
-                    Line(elements.neon, int(i), (part1, part2)), lineshape=GaussianLine
-                )
-            )
-            neon_lines.append(
-                RecombinationLine(
-                    Line(elements.neon, int(i), (part1, part2)), lineshape=GaussianLine
-                )
-            )
-
-    # add all neon lines to the plasma + Bremsstrahlung
-    plasma.models = [*neon_lines, Bremsstrahlung()]
-
     # define species, field and composition
     plasma.b_field = Vector3D(0, 0, 0)
     plasma.electron_distribution = e_distribution
     plasma.composition = [*neon_species, de1_species]
+
+    # Line models for every transition in the Open-ADAS repository, plus Bremsstrahlung
+    plasma.models = [*line_models(plasma), Bremsstrahlung()]
 
     # Define spectral measurements array - has to be size: num of diodes by spectral bins
     NUM_OF_DIODES = sensitivity_matrix.shape[0]

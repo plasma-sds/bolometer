@@ -1,6 +1,5 @@
 import argparse
 import bisect
-import csv
 import pickle
 import matplotlib
 import h5py
@@ -15,11 +14,12 @@ from raysect.primitive import Cylinder
 from raysect.optical.observer import SightLine, SpectralPowerPipeline0D, SpectralRadiancePipeline0D
 from raysect.optical.material.emitter.inhomogeneous import NumericalIntegrator
 
-from cherab.core import Species, Maxwellian, Plasma, Line
+from cherab.core import Species, Maxwellian, Plasma
 from cherab.core.atomic import deuterium, neon
-from cherab.core.model import ExcitationLine, GaussianLine, RecombinationLine, Bremsstrahlung
+from cherab.core.model import Bremsstrahlung
 from cherab.openadas import OpenADAS
 
+from axuv.atomic import install_atomic_data, line_models
 from axuv.datafiles import data_path
 from axuv.io import OUTPUT_DIR
 
@@ -68,7 +68,7 @@ def _parse_args():
     )
     parser.add_argument(
         "--download-adas", action="store_true",
-        help="Run populate() from cherab.openadas.repository before simulation.",
+        help="Install the Open-ADAS data (axuv.atomic.install_atomic_data) before simulation.",
     )
     return parser.parse_args()
 
@@ -77,8 +77,7 @@ if __name__ == "__main__":
     args = _parse_args()
 
     if args.download_adas:
-        from cherab.openadas.repository import populate
-        populate()
+        install_atomic_data()
 
     # Load DREAM output
     with h5py.File(data_path("dream/dream_output.h5")) as do:
@@ -163,23 +162,7 @@ if __name__ == "__main__":
         *ne_species,
     ]
 
-    # Deuterium lines: full Lyman (n→1, 91–122 nm) and Balmer (n→2, 375–656 nm) series
-    deuterium_lines = []
-    for lower_n, upper_range in [(1, range(2, 13)), (2, range(3, 13))]:
-        for upper_n in upper_range:
-            line = Line(deuterium, 0, (upper_n, lower_n))
-            deuterium_lines.append(ExcitationLine(line, lineshape=GaussianLine))
-            deuterium_lines.append(RecombinationLine(line, lineshape=GaussianLine))
-
-    # Neon lines from ne.csv
-    neon_lines = []
-    with open(data_path("atomic/ne.csv")) as f:
-        for i, part1, part2 in csv.reader(f):
-            line = Line(neon, int(i), (part1, part2))
-            neon_lines.append(ExcitationLine(line, lineshape=GaussianLine))
-            neon_lines.append(RecombinationLine(line, lineshape=GaussianLine))
-
-    plasma.models = [*deuterium_lines, *neon_lines, Bremsstrahlung()]
+    plasma.models = [*line_models(plasma), Bremsstrahlung()]
 
     # Observe
     print("Observing the radiation spectrum along the LOS...")

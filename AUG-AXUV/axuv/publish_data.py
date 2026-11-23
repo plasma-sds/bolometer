@@ -21,7 +21,7 @@ Usage
     python -m axuv.publish_data geometry responsivity --dry-run
 
     # Upload everything except the ray-transfer matrices
-    python -m axuv.publish_data geometry responsivity atomic dream traces jorek cad
+    python -m axuv.publish_data geometry responsivity dream traces jorek cad
 
     # Replace the responsivity curves, keeping the old ones
     python -m axuv.publish_data responsivity --replace 2026-10-14

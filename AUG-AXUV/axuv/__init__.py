@@ -30,6 +30,8 @@ cameras        Camera hardware constants, sector → camera mapping
                (SECTOR_CAMERAS), and the Raysect scene builder.
                Also, the spectral configuration and WAVELENGTH_BIN_EDGES.
 plasma         Per-voxel emission function used in Stage 2.
+atomic         Open-ADAS data install (python -m axuv.atomic) and the Cherab
+               line models built from the installed PEC data.
 responsivity   AXUV spectral responsivity curves and weighted-power
                integration (get_weighted_power).
 datafiles      Data keys and their local paths, fetched through

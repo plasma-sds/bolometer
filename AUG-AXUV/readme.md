@@ -68,6 +68,7 @@ AUG-AXUV/                          ← repo root
 │   ├── plot_sensitivity_matrices.py, plot_etendue.py, plot_sightlines.py,
 │   │   plot_degraded_sensitivity.py, compare_highres_lowres.py,
 │   │   plot_1D_dream_spectra.py, verify_uniform_emitter.py
+│   └── sightline_DREAMoutput_Ne_SPI.py  ← 1D LOS model on DREAM SPI output
 │
 ├── measurement_utils/             ← scripts and calibration files for
 │   │                                 working with experimental data
@@ -79,7 +80,6 @@ AUG-AXUV/                          ← repo root
 │
 ├── output/                        ← generated figures, CSVs, threshold_times.json
 │
-├── sightline_DREAMoutput_Ne_SPI.py  ← simple LOS model on DREAM SPI output
 └── pyproject.toml                 ← editable-install / packaging config
 ```
 
@@ -121,13 +121,17 @@ Both methods install `axuv` and `axuv_measurement` in editable mode, which is th
 
 ### Atomic data (Cherab / OpenADAS)
 
-Stage 2 and `sightline_DREAMoutput_Ne_SPI.py` evaluate emission with `cherab.openadas.OpenADAS`, which reads a local atomic-data repository (`~/.cherab/openadas/`). Populate it once per user after installing:
+Stage 2 and `publications/sightline_DREAMoutput_Ne_SPI.py` evaluate emission with `cherab.openadas.OpenADAS`, which reads a local atomic-data repository (`~/.cherab/openadas/repository`). Install it once per user and machine after installing the package:
 
 ```bash
-python -c "from cherab.openadas.repository import populate; populate()"
+python -m axuv.atomic
 ```
 
-This downloads the default OpenADAS rate data. For Ne 9+ lines, see the note under [Notes and caveats](#notes-and-caveats).
+This runs Cherab's `populate()` for the default Open-ADAS data and adds the Ne PEC files (`pec96#ne_pju#ne0` to `ne9`) listed in `ADF15_FILES` in `axuv/atomic.py`, which `populate()` leaves out. Downloads are cached in `_download_cache/` inside the repository, so a second run does not download again. On a machine without internet access, copy `~/.cherab/openadas/repository` from another machine, or point `--adas-path` at a local copy of the Open-ADAS file tree.
+
+The spectral lines are taken from the installed repository. `axuv.atomic.line_models(plasma)` adds an excitation and a recombination line model for every transition with PEC data, for each species in the plasma composition. When an ion with bound electrons has no PEC data or no wavelengths, `line_models` runs the install for it (downloading if needed) and raises an error naming every ion still missing data afterwards, so a run never continues without the line radiation of a species. To add lines of another element, add its ADF15 files to `ADF15_FILES`.
+
+The install works around two Cherab 1.5 bugs: Cherab downloads over `http://`, which Open-ADAS answers with 404, and it writes some thermal charge-exchange data to the default repository even when another one is given.
 
 ### Data files
 
@@ -140,7 +144,6 @@ The code names each file by its *data key*, the path below `aug-axuv/`, and gets
 | `geometry/gc_d_lines.obj` | poloidal cross-section outline | private | `axuv.io.load_gc_d_lines`, plotting |
 | `geometry/etendue_S5.h5`, `geometry/etendue_S16.h5` | ray-traced etendue (Stage 1 product) | private | Stage 3, `plot_etendue.py` |
 | `responsivity/*.csv` | nominal, degraded and worst-case responsivity, error bars | public | `axuv.responsivity` (Stage 3) |
-| `atomic/ne.csv` | Ne line list for Cherab | public | Stage 2, sightline model |
 | `cad/{vessel,divertor,icrh,a_b_coils}/...` | AUG vessel CAD meshes (`.rsm`) | private | Stage 1 with `--reflections` |
 | `raytransfer/raytransfer_{S5,S16}_{refl,norefl}.h5` | geometry matrices produced by Stage 1 | private | Stage 2, publication scripts |
 | `jorek/step02410_out.h5`, `jorek/<shot>/<phase>/stepNNNNN_out.h5` | JOREK output files | private | Stage 1 (`--jorek-file` masking), Stage 2 |
@@ -359,7 +362,3 @@ The server never deletes files, so the `server_write` files stay in `public_html
 - The synthetic `axuv` package requires the AXUV diode geometry data and
   JOREK plasma input; reflection calculations additionally require access to
   the AUG vessel CAD files.
-- For Ne spectral lines: lines 150–151 in `populate()` in
-  `cherab/core/cherab/openadas/repository/create.py` can be used as a
-  template to add Ne 9+ data, after which `populate()` can be called to
-  download the data from OpenADAS.
