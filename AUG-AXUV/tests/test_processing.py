@@ -1,7 +1,10 @@
 import numpy as np
 import pytest
 
-import axuv_measurement.processing as processing
+# axuv_measurement.processing imports aug_sfutils, from the measurement extra
+pytest.importorskip("aug_sfutils")
+
+import axuv_measurement.processing as processing  # noqa: E402
 from axuv_measurement.config import D16, DVC
 
 
