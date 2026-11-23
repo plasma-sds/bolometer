@@ -52,9 +52,7 @@ from raysect.optical.observer import PowerPipeline0D
 from scipy.spatial import ConvexHull
 
 from axuv.cameras import (
-    MAX_WAVELENGTHS,
     SECTOR_CAMERAS,
-    SPECTRAL_BINS,
     WAVELENGTH_BIN_EDGES,
     create_observable_world,
 )
@@ -65,9 +63,6 @@ from axuv.interpolation import (
     POLOIDAL_ZMIN,
 )
 from axuv.io import OUTPUT_DIR, load_axuv_df
-
-MAX_BIN_WIDTH = MAX_WAVELENGTHS[-1] / SPECTRAL_BINS
-
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 def _parse_args():
@@ -288,6 +283,19 @@ def _build_voxel_grid(resolution_R: int, resolution_Z: int, hull_points: np.ndar
     return ray_transfer_grid, cell_centres, grid_laplacian, num_cells
 
 
+def _set_wavelength_range(observer, min_wavelength: float, max_wavelength: float) -> None:
+    """
+    Sets an observer's wavelength range, whatever its previous range.
+
+    Raysect checks min < max on each assignment, so the upper limit is raised
+    first when needed. Bins can then follow each other in any order, as when a
+    resumed run skips completed bins.
+    """
+    observer.max_wavelength = max(observer.max_wavelength, max_wavelength)
+    observer.min_wavelength = min_wavelength
+    observer.max_wavelength = max_wavelength
+
+
 def _init_output_file(
     hdf5_path: str,
     num_diodes: int,
@@ -490,8 +498,7 @@ if __name__ == "__main__":
                             end="\r",
                         )
                         foil.pipelines = [RayTransferPipeline0D(kind=foil.units)]
-                        foil.min_wavelength = wl_lo
-                        foil.max_wavelength = wl_hi
+                        _set_wavelength_range(foil, wl_lo, wl_hi)
                         foil.spectral_bins = ray_transfer_grid.bins
                         foil.spectral_rays = 1
                         foil.pixel_samples = PIXEL_SAMPLES
@@ -502,9 +509,6 @@ if __name__ == "__main__":
                         foil.observe()
                         sensitivity_matrix[diode_index, :, j] = foil.pipelines[0].matrix
                         diode_index += 1
-                        # This will be overrwritten, but is needed so that Raysect doesn't fail for the next diode with
-                        # "ValueError: The minimum wavelength must be less than the maximum wavelength."
-                        foil.max_wavelength += MAX_BIN_WIDTH * 2
 
                 # Flush this bin to disk immediately so a restart can resume from here
                 with h5py.File(HDF5_PATH, "r+") as h5f:
