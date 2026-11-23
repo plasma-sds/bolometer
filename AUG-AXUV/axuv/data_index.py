@@ -6,7 +6,7 @@ the keys that exist are recorded in axuv/data_index.json, with the size and
 modification time of each file:
 
     {"prefix": "bolometer", "root": "aug-axuv",
-     "files": {"atomic/ne.csv": {"size": 13997, "mtime": 1760440000}, ...}}
+     "files": {"geometry/gc_d_lines.obj": {"size": 8591, "mtime": 1791917657}, ...}}
 
 The format follows the manifest planned for plasmasds_utility, which can
 replace this file once it exists. axuv.fetch_data reads it to find, e.g.,

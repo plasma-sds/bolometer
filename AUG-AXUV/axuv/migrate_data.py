@@ -43,7 +43,6 @@ _DATA_RULES = [
     (r"(AXUV_LOS_geom\.txt|gc_d_lines\.obj|etendue_\w+\.h5)", r"geometry/\1"),
     (r"(axuv_sensitivity|degraded_sensitivity|degraded_errorbars|worst_estimation)\.csv",
      r"responsivity/\1.csv"),
-    (r"ne\.csv", r"atomic/ne.csv"),
     (r"dream_output\.h5", r"dream/dream_output.h5"),
     (r"(raytransfer_[\w-]+\.h5)", r"raytransfer/\1"),
     (r"(step\d+_out\.h5)", r"jorek/\1"),

@@ -26,9 +26,9 @@ def test_local_keys_selects_by_prefix(data_dir):
     _put(data_dir, "private", "geometry/a.txt")
     _put(data_dir, "private", "jorek/40673/P1/s1.h5")
     _put(data_dir, "private", "jorek/41007/P1/s2.h5")
-    _put(data_dir, "public", "atomic/ne.csv")
-    keys, misplaced = local_keys(["jorek/40673", "atomic"])
-    assert keys == ["atomic/ne.csv", "jorek/40673/P1/s1.h5"]
+    _put(data_dir, "public", "dream/dream_output.h5")
+    keys, misplaced = local_keys(["jorek/40673", "dream"])
+    assert keys == ["dream/dream_output.h5", "jorek/40673/P1/s1.h5"]
     assert misplaced == []
 
 
@@ -68,11 +68,11 @@ def test_publish_outcomes(monkeypatch):
         "aug-axuv/geometry/c.txt": TransferError("timed out"),
     })
     monkeypatch.setattr(datafiles, "_CLIENT", client)
-    results = publish(["atomic/ne.csv", "geometry/b.txt", "geometry/c.txt"])
-    assert results["uploaded"] == ["atomic/ne.csv"]
+    results = publish(["dream/dream_output.h5", "geometry/b.txt", "geometry/c.txt"])
+    assert results["uploaded"] == ["dream/dream_output.h5"]
     assert results["on server"] == ["geometry/b.txt"]
     assert results["failed"] == ["geometry/c.txt: timed out"]
-    assert client.calls[0] == ("aug-axuv/atomic/ne.csv", False, None)
+    assert client.calls[0] == ("aug-axuv/dream/dream_output.h5", False, None)
     assert client.calls[1][1] is True
 
 

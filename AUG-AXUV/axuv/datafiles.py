@@ -38,7 +38,6 @@ DATA_TREES = {
     "jorek": "private",          # JOREK inputs for Stage 1 masking and Stage 2
     "traces": "private",         # frad/ip/wth time traces (AUG data)
     "responsivity": "public",    # AXUV responsivity curves
-    "atomic": "public",          # Ne line list for Cherab
     "dream": "public",           # DREAM run for the 1D sightline model
     "emissions": "public",       # dummy Stage 2 outputs
     "test_dataset": "public",    # dummy geometry and reference results for CI

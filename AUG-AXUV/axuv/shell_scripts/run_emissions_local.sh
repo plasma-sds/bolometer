@@ -34,7 +34,7 @@ for pair in "40673/P1 S16" "41007/P1 S16" "40673/P45 S5" "41007/P45 S5"; do
     # Fetch everything once, before the workers start, so none of them downloads
     matrix=$("$python" -m axuv.fetch_data --paths "raytransfer/raytransfer_${sector}_${variant}.h5") || exit 1
     inputs=$("$python" -m axuv.fetch_data --paths "jorek/$currentdir") || exit 1
-    "$python" -m axuv.fetch_data atomic geometry || exit 1
+    "$python" -m axuv.fetch_data geometry || exit 1
     echo "$(date +%T) working on $currentdir with $(basename "$matrix")"
     echo "$inputs" | parallel -j "$jobs" --halt never \
         "nice -n 5 $python -u $maindir/calculate_emissions_for_raytransfer.py {} --raytransfer-file $matrix --dataset $currentdir &> $logdir/output_${variant}_{/}.txt"

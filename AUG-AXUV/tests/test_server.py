@@ -22,7 +22,6 @@ from axuv.publish_data import publish
 
 # Small keys from both trees
 DOWNLOAD_KEYS = [
-    "atomic/ne.csv",
     "responsivity/axuv_sensitivity.csv",
     "geometry/AXUV_LOS_geom.txt",
     "traces/40673/ip-exp-40673.txt",
@@ -57,13 +56,13 @@ def test_download_matches_index(key, fresh_data_dir):
 
 @pytest.mark.server
 def test_if_newer_keeps_current_copy(fresh_data_dir):
-    path = data_path("atomic/ne.csv")
+    path = data_path("responsivity/axuv_sensitivity.csv")
     inode = path.stat().st_ino
-    assert data_path("atomic/ne.csv", update="if_newer").stat().st_ino == inode
+    assert data_path("responsivity/axuv_sensitivity.csv", update="if_newer").stat().st_ino == inode
 
 
 @pytest.mark.server
-@pytest.mark.parametrize("key", ["atomic/ne.csv", "geometry/gc_d_lines.obj"])
+@pytest.mark.parametrize("key", ["responsivity/axuv_sensitivity.csv", "geometry/gc_d_lines.obj"])
 def test_on_server(key):
     assert on_server(key)
     assert not on_server(key.rsplit("/", 1)[0] + "/not-on-the-server.txt")

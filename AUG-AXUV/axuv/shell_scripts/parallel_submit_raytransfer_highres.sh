@@ -32,7 +32,7 @@ for variant in $VARIANTS; do
         # Fetch everything once, before the workers start, so none of them downloads
         matrix=$("$python" -m axuv.fetch_data --paths "raytransfer/raytransfer_${sector}_${variant}.h5") || exit 1
         inputs=$("$python" -m axuv.fetch_data --paths "jorek/$currentdir") || exit 1
-        "$python" -m axuv.fetch_data atomic geometry || exit 1
+        "$python" -m axuv.fetch_data geometry || exit 1
         echo "Working on $currentdir with $(basename "$matrix")..."
         echo "$inputs" | parallel -j 20 \
             "nice -n 5 taskset -c {#} $python -u $maindir/calculate_emissions_for_raytransfer.py {} --raytransfer-file $matrix --dataset $currentdir --resolution-r 120 --resolution-z 220 &> $logdir/output_${variant}_{/}.txt"

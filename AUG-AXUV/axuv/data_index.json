@@ -1,5 +1,4 @@
 {"prefix": "bolometer", "root": "aug-axuv", "files": {
-    "atomic/ne.csv": {"size": 13997, "mtime": 1791917652},
     "cad/a_b_coils/A-coils_s01-16_2010_10_21.rsm": {"size": 3879092, "mtime": 1791917799},
     "cad/a_b_coils/cover_Bl-coils_s01-s16.rsm": {"size": 6092432, "mtime": 1791917800},
     "cad/a_b_coils/cover_Bu-coils_s01-s16.rsm": {"size": 14807860, "mtime": 1791917801},

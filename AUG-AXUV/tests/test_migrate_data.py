@@ -14,7 +14,6 @@ from axuv.migrate_data import data_key, place, plan
         ("etendue_S16.h5", "geometry/etendue_S16.h5"),
         ("worst_estimation.csv", "responsivity/worst_estimation.csv"),
         ("degraded_errorbars.csv", "responsivity/degraded_errorbars.csv"),
-        ("ne.csv", "atomic/ne.csv"),
         ("dream_output.h5", "dream/dream_output.h5"),
         ("raytransfer_S5_refl.h5", "raytransfer/raytransfer_S5_refl.h5"),
         ("raytransfer_S16_highres_norefl.h5", "raytransfer/raytransfer_S16_highres_norefl.h5"),
@@ -37,11 +36,11 @@ def test_data_key_unknown(relative):
 
 def test_plan(tmp_path):
     data, cad = tmp_path / "data", tmp_path / "aug"
-    for path in [data / "ne.csv", data / "notes.txt", cad / "vessel" / "v.rsm"]:
+    for path in [data / "dream_output.h5", data / "notes.txt", cad / "vessel" / "v.rsm"]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("x")
     mapped, unmapped = plan(data, cad)
-    assert [key for _, key in mapped] == ["atomic/ne.csv", "cad/vessel/v.rsm"]
+    assert [key for _, key in mapped] == ["dream/dream_output.h5", "cad/vessel/v.rsm"]
     assert unmapped == [data / "notes.txt"]
 
 

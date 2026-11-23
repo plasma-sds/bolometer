@@ -11,7 +11,7 @@ on disk instead of downloading them itself.
 Usage
 -----
     # Everything Stage 2 needs for one dataset
-    python -m axuv.fetch_data jorek/40673/P1 raytransfer/raytransfer_S16_norefl.h5 atomic
+    python -m axuv.fetch_data jorek/40673/P1 raytransfer/raytransfer_S16_norefl.h5 geometry
 
     # Local paths of the JOREK inputs of a dataset, for a shell loop
     python -m axuv.fetch_data --paths jorek/40673/P1

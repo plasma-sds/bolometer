@@ -34,7 +34,7 @@ def test_private_groups(group):
     assert is_private(f"{group}/file.h5")
 
 
-@pytest.mark.parametrize("group", ["responsivity", "atomic", "dream", "emissions", "test_dataset"])
+@pytest.mark.parametrize("group", ["responsivity", "dream", "emissions", "test_dataset"])
 def test_public_groups(group):
     assert not is_private(f"{group}/file.h5")
 
@@ -66,7 +66,7 @@ def test_data_path_passes_tree(monkeypatch, key, private):
 
 
 @pytest.mark.parametrize(
-    "key, private", [("cad/vessel/a.rsm", True), ("atomic/ne.csv", False)]
+    "key, private", [("cad/vessel/a.rsm", True), ("responsivity/axuv_sensitivity.csv", False)]
 )
 def test_on_server_passes_tree(monkeypatch, key, private):
     calls = []
@@ -84,7 +84,7 @@ def test_on_server_passes_tree(monkeypatch, key, private):
 # ── local copies through the real utility ─────────────────────────────────────
 def test_local_path_layout(data_dir):
     assert local_path("cad/vessel/a.rsm") == data_dir / "bolometer/private/aug-axuv/cad/vessel/a.rsm"
-    assert local_path("atomic/ne.csv") == data_dir / "bolometer/public/aug-axuv/atomic/ne.csv"
+    assert local_path("responsivity/axuv_sensitivity.csv") == data_dir / "bolometer/public/aug-axuv/responsivity/axuv_sensitivity.csv"
 
 
 def test_private_local_copy(data_dir):
@@ -93,8 +93,8 @@ def test_private_local_copy(data_dir):
 
 
 def test_public_local_copy(data_dir):
-    path = _put(data_dir, "public", "atomic/ne.csv")
-    assert data_path("atomic/ne.csv") == path
+    path = _put(data_dir, "public", "responsivity/axuv_sensitivity.csv")
+    assert data_path("responsivity/axuv_sensitivity.csv") == path
 
 
 def test_public_copy_never_replaces_private(data_dir):
