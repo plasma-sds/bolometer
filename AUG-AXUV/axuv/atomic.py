@@ -21,11 +21,13 @@ Install the data once per user and machine:
 import argparse
 import json
 import warnings
+from contextlib import contextmanager
 from pathlib import Path
 
 from cherab.core import Line
 from cherab.core.atomic import Isotope, neon
 from cherab.core.model import ExcitationLine, GaussianLine, RecombinationLine
+from cherab.openadas import repository as cherab_repository
 from cherab.openadas.install import install_adf15
 from cherab.openadas.repository import populate
 from cherab.openadas.repository.utility import DEFAULT_REPOSITORY_PATH
@@ -47,10 +49,32 @@ def install_atomic_data(repository_path=None, adas_path=None):
     :param adas_path: Local copy of the Open-ADAS file tree (adf11/, adf15/,
         ...), for machines without internet access.
     """
-    populate(download=True, repository_path=repository_path, adas_path=adas_path)
-    for element, charge, file_path in ADF15_FILES:
-        install_adf15(element, charge, file_path, download=True,
-                      repository_path=repository_path, adas_path=adas_path)
+    with _thermal_cx_to(repository_path):
+        populate(download=True, repository_path=repository_path, adas_path=adas_path)
+        for element, charge, file_path in ADF15_FILES:
+            install_adf15(element, charge, file_path, download=True,
+                          repository_path=repository_path, adas_path=adas_path)
+
+
+@contextmanager
+def _thermal_cx_to(repository_path):
+    """Send thermal CX PECs to repository_path during an install.
+
+    Cherab 1.5 install_adf15 (cherab/openadas/install.py) writes the thermal CX
+    PECs found in some ADF15 files (C1, C2, C5, N1 in populate()) to the default
+    repository, whatever repository_path says.
+    """
+    if repository_path is None:
+        yield
+        return
+    original = cherab_repository.update_pec_thermal_cx_rates
+    cherab_repository.update_pec_thermal_cx_rates = (
+        lambda rates, repository_path_=None: original(rates, repository_path)
+    )
+    try:
+        yield
+    finally:
+        cherab_repository.update_pec_thermal_cx_rates = original
 
 
 def available_transitions(element, charge, kind, repository_path=None):
@@ -83,7 +107,9 @@ def line_models(plasma, lineshape=GaussianLine):
     recombination PEC when the next charge state, which supplies the
     recombining density, is also in the composition. Species without data
     contribute no models; a warning names each one that still has bound
-    electrons, since its line radiation is then missing from the result.
+    electrons, since its line radiation is then missing from the result, and
+    each one with excitation but no recombination data while the next charge
+    state is present.
 
     :param plasma: Cherab Plasma with its composition set and an OpenADAS
         instance as atomic_data; the repository path is taken from it.
@@ -106,7 +132,14 @@ def line_models(plasma, lineshape=GaussianLine):
             models.append(ExcitationLine(line, lineshape=lineshape))
         if (element, charge + 1) not in present:
             continue
-        for transition in available_transitions(element, charge, "recombination", repository_path):
+        recombination = available_transitions(element, charge, "recombination", repository_path)
+        if excitation and not recombination:
+            warnings.warn(
+                f"No recombination PEC data for {element.symbol}{charge}+ in {repository_path}; "
+                "its recombination line radiation is left out.",
+                stacklevel=2,
+            )
+        for transition in recombination:
             line = Line(element, charge, transition)
             models.append(RecombinationLine(line, lineshape=lineshape))
     return models
