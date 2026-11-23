@@ -31,7 +31,7 @@ from axuv.interpolation import (
     POLOIDAL_ZMIN,
     interpolate_parameters,
 )
-from axuv.atomic import line_models
+from axuv.atomic import add_variant_argument, line_models
 from axuv.datafiles import data_path
 from axuv.io import emissions_output_dir, load_axuv_df
 from axuv.plasma import emission_function_3d
@@ -85,6 +85,7 @@ def _parse_args():
         metavar="DIR",
         help="Directory for the emission file. Overrides the path derived from --dataset.",
     )
+    add_variant_argument(parser)
     args = parser.parse_args()
     if args.output_dir is None and args.dataset is None:
         parser.error("give --dataset (or set currentdir) or --output-dir")
@@ -299,7 +300,7 @@ if __name__ == "__main__":
     plasma.composition = [*neon_species, de1_species]
 
     # Line models for every transition in the Open-ADAS repository, plus Bremsstrahlung
-    plasma.models = [*line_models(plasma), Bremsstrahlung()]
+    plasma.models = [*line_models(plasma, variants=args.pec_variant), Bremsstrahlung()]
 
     # Define spectral measurements array - has to be size: num of diodes by spectral bins
     NUM_OF_DIODES = sensitivity_matrix.shape[0]
