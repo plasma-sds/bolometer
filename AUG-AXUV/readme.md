@@ -5,7 +5,7 @@ ASDEX Upgrade (AUG).
 
 ## Important requirements
 - Linux (Cherab requirement)
-- Python 3.12
+- Python 3.14
 
 ---
 
@@ -90,7 +90,9 @@ AUG-AXUV/                          ← repo root
 ### Prerequisites
 
 - Linux (Cherab requirement).
-- Python 3.12. Cherab 1.5 requires Raysect 0.8.1 and NumPy < 2, which have no wheels for newer Python versions, so `requires-python` is capped at `<3.13`.
+- Python 3.14 or newer. Cherab 1.6 requires Raysect 0.9.1 and NumPy 2; both ship wheels up to Python 3.14.
+- NumPy is held below 2.5: `aug_sfutils` 0.9.3 uses `np.chararray`, which NumPy 2.5 removed, and cannot read shotfiles without it.
+- `aug_sfutils` is no longer listed on PyPI. The `measurement` extra installs the 0.9.3 wheel from its direct file URL.
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip.
 
 ### Install with uv (recommended)
@@ -99,19 +101,19 @@ AUG-AXUV/                          ← repo root
 
 ```bash
 cd AUG-AXUV
-uv sync                          # creates .venv with Python 3.12, installs locked deps + pytest
+uv sync                          # creates .venv with Python 3.14, installs locked deps + pytest
 source .venv/bin/activate
 ```
 
-`uv sync` downloads Python 3.12 if it is not available on the system. Add `--extra measurement` to include `aug_sfutils`.
+`uv sync` downloads Python 3.14 if it is not available on the system. Add `--extra measurement` to include `aug_sfutils`.
 
 ### Install with pip
 
-pip ignores `uv.lock` and resolves within the bounds in `pyproject.toml`. Create the environment with a Python 3.12 interpreter:
+pip ignores `uv.lock` and resolves within the bounds in `pyproject.toml`. Create the environment with a Python 3.14 interpreter:
 
 ```bash
 cd AUG-AXUV
-python3.12 -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate
 pip install -e .                 # add ".[measurement]" for aug_sfutils
 pip install pytest               # the dev group in pyproject.toml is not installed by pip install -e
@@ -131,7 +133,7 @@ This runs Cherab's `populate()` for the default Open-ADAS data and adds the Ne P
 
 The spectral lines are taken from the installed repository. `axuv.atomic.line_models(plasma)` adds an excitation and a recombination line model for every transition with PEC data, for each species in the plasma composition. When an ion with bound electrons has no PEC data or no wavelengths, `line_models` runs the install for it (downloading if needed) and raises an error naming every ion still missing data afterwards, so a run never continues without the line radiation of a species. To add lines of another element, add its ADF15 files to `ADF15_FILES`.
 
-The install works around two Cherab 1.5 bugs: Cherab downloads over `http://`, which Open-ADAS answers with 404, and it writes some thermal charge-exchange data to the default repository even when another one is given.
+The install works around two Cherab 1.6 bugs: Cherab downloads over `http://`, which Open-ADAS answers with 404, and it writes some thermal charge-exchange data to the default repository even when another one is given.
 
 ### Data files
 
