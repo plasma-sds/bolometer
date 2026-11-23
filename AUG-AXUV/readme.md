@@ -133,6 +133,21 @@ This runs Cherab's `populate()` for the default Open-ADAS data and adds the Ne P
 
 The spectral lines are taken from the installed repository. `axuv.atomic.line_models(plasma)` adds an excitation and a recombination line model for every transition with PEC data, for each species in the plasma composition. When an ion with bound electrons has no PEC data or no wavelengths, `line_models` runs the install for it (downloading if needed) and raises an error naming every ion still missing data afterwards, so a run never continues without the line radiation of a species. To add lines of another element, add its ADF15 files to `ADF15_FILES`.
 
+Tungsten and boron have several PEC data sets in Open-ADAS, which Cherab's ADF15 parser does not read in full. `axuv/adf15.py` reads them, and `VARIANT_FILES` in `axuv/atomic.py` lists them. Each set is installed next to the others, with the set name in the transition keys (`"ic:487 -> ic:1"`), and a run picks one set per element:
+
+| Element | Variants | Files |
+|---|---|---|
+| W | `ca`, `cl`, `ic`, `ls` | `pec40#w_<variant>#w0` to `w73`: `ic` intermediate coupling, `ls` LS coupling, `ca` and `cl` two line selections from the same configuration-average ADF04 data |
+| B | `llu`, `llr` | `pec93#b`: B3+ uses `llu#b3` (not resolved by metastable) or `llr#b3` (resolved; only the blocks driven from the ground state are kept). B0+ to B2+ use `llu` and B4+ uses `llr` in both sets, their only pec93 files |
+
+Pass the choice as `line_models(plasma, variants={"W": "ic", "B": "llr"})`, or as `--pec-variant W=ic --pec-variant B=llr` to `calculate_emissions_for_raytransfer.py` and `publications/sightline_DREAMoutput_Ne_SPI.py`. A plasma containing W needs a choice; B defaults to `llu`, which needs no assumption about the B3+ metastable population. `python -m axuv.atomic` installs all sets; `line_models` installs only the chosen set of an ion that lacks it.
+
+The choice changes the radiated power, and no set is a complete model of it:
+
+- Each W pec40 file holds at most 50 lines. `ic` and `ls` have 50 for every ion. `cl` has 50 except W0+. `ca` has fewer for 31 ions, down to a single line for W0+, W19+ to W23+ and W25+. The summed line power of the four sets differs by up to about 100× for the same ion (W20+ at 380 eV: `cl` 1.7e-15, `ic` 1.1e-17), and differs from the total line radiation in ADF11 PLT.
+- No W pec40 file has recombination PECs, so W recombination lines are left out (`line_models` warns).
+- B3+ `llr` keeps only the emission driven from the ground state; the emission driven from the 1s2s ³S metastable is dropped. Its summed line power is 5 %, 23 %, 72 % and 97 % of `llu` at 10, 50, 200 and 1000 eV (any density from 1e18 to 1e20 m⁻³). `llu#b3` has no recombination PECs and lacks the 61.1 Å line. The `llu#b3` density grid ends at 1e20 m⁻³, so higher densities are clamped to it when extrapolation is allowed.
+
 The install works around two Cherab 1.6 bugs: Cherab downloads over `http://`, which Open-ADAS answers with 404, and it writes some thermal charge-exchange data to the default repository even when another one is given.
 
 ### Data files
