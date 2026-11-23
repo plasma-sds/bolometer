@@ -74,7 +74,8 @@ def upsample_interpolate(templist: list, timesignals: list):
 # ---------------------------------------------------------------------------
 
 def downsample(shotno, diagname: str,
-               start: float = 2.31, end: float = 2.32):
+               start: float = 2.31, end: float = 2.32,
+               signalrange: tuple = (0, 47)):
     """Downsample time signal and channel data to a uniform 1×10⁻⁵ s resolution.
 
     The downsampling factor differs by diagnostic so that all cameras end up
@@ -91,14 +92,16 @@ def downsample(shotno, diagname: str,
     # Factor chosen so that all diagnostics reach the same 1e-5 s resolution
     factor = 10 if any(x == diagname for x in NEWAXUV) else 4
 
-    shotno = str(shotno)
     data, timesignal = get_AXUV_signals(int(shotno), diagname, tbeg=start, tend=end)
 
-    # Downsample data and time signal by `factor`
-    newend = timesignal.shape[0] - (timesignal.shape[0] % factor)  # Round down to nearest multiple of `factor`
-    timesignal = timesignal[:newend]  # Truncate to nearest multiple of `factor`
-    downsampled_time = timesignal.reshape(-1, factor).mean(axis=1)  # Average `factor` time points together
-    downsampled_data = data[:newend].reshape(-1, factor).mean(axis=1)  # Average `factor` data points together
+    # get_AXUV_signals returns (N_channels, T); keep the selected channels as (T, N)
+    first, last = signalrange
+    data = data[first:last + 1].T
+
+    # Average blocks of `factor` time points, dropping the incomplete last block
+    newend = timesignal.shape[0] - (timesignal.shape[0] % factor)
+    downsampled_time = timesignal[:newend].reshape(-1, factor).mean(axis=1)
+    downsampled_data = data[:newend].reshape(-1, factor, data.shape[1]).mean(axis=1)
 
     return downsampled_data, downsampled_time
 
@@ -175,7 +178,7 @@ def ridge_filter(shotno, diagname: str,
     """
 
     downsampled_data, downsampled_time = downsample(
-        shotno, diagname, start=start, end=end
+        shotno, diagname, start=start, end=end, signalrange=signalrange
     )
 
     # Detect low-signal (dead) channels
