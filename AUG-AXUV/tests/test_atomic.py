@@ -157,12 +157,13 @@ def test_install_atomic_data_calls(tmp_path, monkeypatch):
                         lambda *a, **kw: calls.append(("adf15", a, kw)))
     atomic.install_atomic_data(repository_path=str(tmp_path), adas_path="/adas")
     expected_kw = {"download": True, "repository_path": str(tmp_path), "adas_path": "/adas"}
-    assert calls[0] == ("populate", expected_kw)
-    adf15 = [c[1] for c in calls[1:]]
+    # populate() runs last, so its NIST H0 wavelengths win over the ADF15 file's
+    assert calls[-1] == ("populate", expected_kw)
+    adf15 = [c[1] for c in calls[:-1]]
     assert adf15 == [(hydrogen, 0, "adf15/pec12#h/pec12#h_pju#h0.dat")] + [
         (neon, q, f"adf15/pec96#ne/pec96#ne_pju#ne{q}.dat") for q in range(10)
     ]
-    assert all(c[2] == expected_kw for c in calls[1:])
+    assert all(c[2] == expected_kw for c in calls[:-1])
 
 
 def test_thermal_cx_goes_to_repository_path(monkeypatch):

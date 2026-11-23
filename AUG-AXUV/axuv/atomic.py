@@ -58,10 +58,12 @@ def install_atomic_data(repository_path=None, adas_path=None):
         ...), for machines without internet access.
     """
     with _install_lock(repository_path), _cherab_install_fixes(repository_path):
-        populate(download=True, repository_path=repository_path, adas_path=adas_path)
+        # ADF15_FILES first: populate() then writes its NIST wavelengths for H0
+        # over the ADF15 file's own, as a plain populate() would
         for element, charge, file_path in ADF15_FILES:
             install_adf15(element, charge, file_path, download=True,
                           repository_path=repository_path, adas_path=adas_path)
+        populate(download=True, repository_path=repository_path, adas_path=adas_path)
 
 
 def _install_missing(composition, repository_path, wavelength_fallback=False):
