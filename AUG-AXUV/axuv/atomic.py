@@ -13,7 +13,7 @@ error if the data is still missing.
 
 The repository layout, ``pec/<class>/<element>/<charge>.json`` with one key
 ``"<upper> -> <lower>"`` per transition, is internal to Cherab. It is read
-directly here and holds for the pinned Cherab 1.5.
+directly here and holds for the pinned Cherab 1.6.
 
 Install the data once per user and machine:
 
@@ -118,11 +118,11 @@ OPENADAS_FILE_URL = "https://open.adas.ac.uk/download/"
 
 @contextmanager
 def _cherab_install_fixes(repository_path):
-    """Work around two Cherab 1.5 install bugs while installing.
+    """Work around two Cherab 1.6 install bugs while installing.
 
     - Cherab downloads from http://open.adas.ac.uk/download/, which answers 404;
       the same path over https works. Fixed upstream on the development branch,
-      not in Cherab 1.6.0.
+      not in a release as of Cherab 1.6.0.
     - install_adf15 writes the thermal CX PECs found in some ADF15 files (C1, C2,
       C5, N1 in populate()) to the default repository, whatever repository_path
       says. They are sent to repository_path here.

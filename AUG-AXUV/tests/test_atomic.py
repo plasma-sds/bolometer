@@ -65,13 +65,7 @@ def test_available_transitions_isotope_uses_element(repo):
     assert available_transitions(deuterium, 0, "excitation", repo) == [(2, 1), (3, 2)]
 
 
-def test_line_models_needs_next_charge_for_recombination(repo, monkeypatch):
-    # Cherab 1.5 line models expose no .line attribute; record the Line objects instead
-    lines = []
-    import axuv.atomic as atomic
-    original = atomic.Line
-    monkeypatch.setattr(atomic, "Line", lambda *a: lines.append(a) or original(*a))
-
+def test_line_models_needs_next_charge_for_recombination(repo):
     models = line_models(_plasma(repo, [(deuterium, 0), (neon, 8), (neon, 9)]))
 
     kinds = [type(m) for m in models]
@@ -79,7 +73,9 @@ def test_line_models_needs_next_charge_for_recombination(repo, monkeypatch):
     # Ne9: no Ne10, so excitation only
     assert kinds.count(RecombinationLine) == 0
     assert kinds.count(ExcitationLine) == 4
-    assert {(e.symbol, c) for e, c, _ in lines} == {("D", 0), ("Ne", 8), ("Ne", 9)}
+    assert {(m.line.element.symbol, m.line.charge) for m in models} == {
+        ("D", 0), ("Ne", 8), ("Ne", 9)
+    }
 
     models = line_models(_plasma(repo, [(deuterium, 0), (deuterium, 1), (neon, 9), (neon, 10)]))
     kinds = [type(m) for m in models]
