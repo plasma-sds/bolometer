@@ -68,7 +68,10 @@ AUG-AXUV/                          ← repo root
 │   ├── plot_sensitivity_matrices.py, plot_etendue.py, plot_sightlines.py,
 │   │   plot_degraded_sensitivity.py, compare_highres_lowres.py,
 │   │   plot_1D_dream_spectra.py, verify_uniform_emitter.py
-│   └── sightline_DREAMoutput_Ne_SPI.py  ← 1D LOS model on DREAM SPI output
+│   ├── sightline_DREAMoutput_Ne_SPI.py  ← 1D LOS model on DREAM SPI output
+│   ├── run_dream_spi_sightlines.py  ← 1D LOS runs on the DREAM SPI cases
+│   │                                 with and without the W + B background
+│   └── plot_dream_spi_comparison.py ← summary table and plots of those runs
 │
 ├── measurement_utils/             ← scripts and calibration files for
 │   │                                 working with experimental data
@@ -247,6 +250,12 @@ python axuv/calculate_emissions_for_raytransfer.py \
     <local path of jorek/40673/P1/step01010_out.h5> --dataset 40673/P1
 # writes $AXUV_OUTPUT_DIR/40673/P1/emissions/emissions_norefl_lowres_masked_<time>.h5
 ```
+
+### 1D sightline on DREAM SPI cases
+
+`publications/sightline_DREAMoutput_Ne_SPI.py` observes the spectrum along one chord through a cylinder model of a DREAM SPI plasma, either for the bundled DREAM output (`time` argument, section 3 of the paper) or for a case directory (`--case DIR --t-rel S`). `axuv/dream.py` joins a case's files (`init_0.h5`, `init_1.h5`, ..., `main.h5`, with main starting at `settings/init/filetimeindex` of the last init file, the TQ onset), drops the steps repeated at each join, and maps the species from the files' `ionmeta` names and Z: `D_th`, `D_fi` and `D_inj` are summed as deuterium. A species with more charge states than its element (the `B` species stored with Z = 6) has the states above the element's atomic number folded into the bare nucleus, and this is flagged in the outputs.
+
+`publications/run_dream_spi_sightlines.py` runs the cases in `~/Data/AUG-AXUV/DREAM_SPI/` (40737 and 40949, without impurities and with W + B for W couplings `cl` and `ca`) on a 0.5 ms grid in time from the TQ onset, from two steps before the first fragment ablation to eight steps after the onset. It writes one HDF5 file per step under `$AXUV_OUTPUT_DIR/1D_DREAM_SPI/<run>/`, skips finished steps on restart, and stops after the steps in progress when the file `STOP` exists in that directory. The W and B line emission is also saved separately (`parts/W`, `parts/B`, `parts/rest`). `publications/plot_dream_spi_comparison.py` writes a summary table and the η_eff and power plots to `1D_DREAM_SPI/plots/`.
 
 ### Stage 3 — Synthetic signals
 
