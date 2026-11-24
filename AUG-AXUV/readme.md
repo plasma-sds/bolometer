@@ -71,7 +71,8 @@ AUG-AXUV/                          ← repo root
 │   ├── sightline_DREAMoutput_Ne_SPI.py  ← 1D LOS model on DREAM SPI output
 │   ├── run_dream_spi_sightlines.py  ← 1D LOS runs on the DREAM SPI cases
 │   │                                 with and without the W + B background
-│   └── plot_dream_spi_comparison.py ← summary table and plots of those runs
+│   ├── plot_dream_spi_comparison.py ← summary table and plots of those runs
+│   └── dream_spi/                ← checks on the DREAM SPI files themselves
 │
 ├── measurement_utils/             ← scripts and calibration files for
 │   │                                 working with experimental data
@@ -256,6 +257,8 @@ python axuv/calculate_emissions_for_raytransfer.py \
 `publications/sightline_DREAMoutput_Ne_SPI.py` observes the spectrum along one chord through a cylinder model of a DREAM SPI plasma, either for the bundled DREAM output (`time` argument, section 3 of the paper) or for a case directory (`--case DIR --t-rel S`). `axuv/dream.py` joins a case's files (`init_0.h5`, `init_1.h5`, ..., `main.h5`, with main starting at `settings/init/filetimeindex` of the last init file, the TQ onset), drops the steps repeated at each join, and maps the species from the files' `ionmeta` names and Z: `D_th`, `D_fi` and `D_inj` are summed as deuterium. A species with more charge states than its element (the `B` species stored with Z = 6) has the states above the element's atomic number folded into the bare nucleus, and this is flagged in the outputs.
 
 `publications/run_dream_spi_sightlines.py` runs the cases in `~/Data/AUG-AXUV/DREAM_SPI/` (40737 and 40949, without impurities and with W + B for W couplings `cl` and `ca`) on a 0.5 ms grid in time from the TQ onset, from two steps before the first fragment ablation to eight steps after the onset. It writes one HDF5 file per step under `$AXUV_OUTPUT_DIR/1D_DREAM_SPI/<run>/`, skips finished steps on restart, and stops after the steps in progress when the file `STOP` exists in that directory. The W and B line emission is also saved separately (`parts/W`, `parts/B`, `parts/rest`). `publications/plot_dream_spi_comparison.py` writes a summary table and the η_eff and power plots to `1D_DREAM_SPI/plots/`.
+
+`publications/dream_spi/dream_radiated_energy.py` integrates DREAM's own `Tcold_radiation` over volume and time for each case, for comparison with the Cherab runs. `publications/dream_spi/dream_settings.py` prints the ion, radiation and code settings stored in a DREAM file. DREAM selects atomic data by Z and mass number, not by species name, so the `B` species with Z = 6 in these cases was simulated with carbon data: the DREAM commit used (83dedff) has no boron data, which was added in f73addc9 (DREAM PR #488).
 
 ### Stage 3 — Synthetic signals
 
