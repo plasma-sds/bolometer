@@ -56,6 +56,9 @@ AUG-AXUV/                          ← repo root
 │   │                                 (with W_th vertical lines)
 │   └── animation.py               ← poloidal scatter and line-plot animations
 │
+├── checks/adf15/                  ← checks of the W and B ADF15 files
+│                                    (see its README.md)
+│
 ├── tests/                         ← unit tests (cover axuv/ only; no AUG
 │   ├── test_cameras.py              server required)
 │   ├── test_geometry.py
@@ -147,7 +150,7 @@ Pass the choice as `line_models(plasma, variants={"W": "ic", "B": "llr"})`, or a
 
 The choice changes the radiated power, and no set is a complete model of it:
 
-- Each W pec40 file holds at most 50 lines. `ic` and `ls` have 50 for every ion. `cl` has 50 except W0+. `ca` has fewer for 31 ions, down to a single line for W0+, W19+ to W23+ and W25+. The summed line power of the four sets differs by up to about 100× for the same ion (W20+ at 380 eV: `cl` 1.7e-15, `ic` 1.1e-17), and differs from the total line radiation in ADF11 PLT.
+- Each W pec40 file holds at most 50 lines. `ic` and `ls` have 50 for every ion. `cl` has 50 except W0+. `ca` has fewer for 31 ions, down to a single line for W0+, W19+ to W23+ and W25+. The summed line power of the four sets differs by up to about 100× for the same ion (W20+ at 380 eV: `cl` 1.7e-15, `ic` 1.1e-17), and differs from the total line radiation in ADF11 PLT. `checks/adf15/` has the scripts that compare the files with ADF11 PLT and with Cherab's own parser.
 - No W pec40 file has recombination PECs, so W recombination lines are left out (`line_models` warns).
 - B3+ `llr` keeps only the emission driven from the ground state; the emission driven from the 1s2s ³S metastable is dropped. Its summed line power is 5 %, 23 %, 72 % and 97 % of `llu` at 10, 50, 200 and 1000 eV (any density from 1e18 to 1e20 m⁻³). `llu#b3` has no recombination PECs and lacks the 61.1 Å line. The `llu#b3` density grid ends at 1e20 m⁻³, so higher densities are clamped to it when extrapolation is allowed.
 
