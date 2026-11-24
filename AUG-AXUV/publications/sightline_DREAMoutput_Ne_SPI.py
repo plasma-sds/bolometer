@@ -1,28 +1,41 @@
+"""Spectrum of a DREAM SPI plasma along one sightline through a cylinder model.
+
+Two inputs:
+- the bundled DREAM output (data file dream/dream_output.h5), with the
+  observation time as the positional argument, as in section 3 of the paper;
+- a DREAM SPI case directory (init_0.h5, init_1.h5, ..., main.h5) with --case
+  and --t-rel, the time relative to the thermal quench onset.
+
+Species are read from the file's ionmeta (names and Z), see axuv.dream. For
+cases with W and B, the spectrum is also observed separately for the W lines,
+the B lines and the rest (all other lines and Bremsstrahlung), so their shares
+of the power can be computed. Emission is additive, so the parts sum to the
+total.
+"""
+
 import argparse
 import bisect
 import pickle
-import matplotlib
+from pathlib import Path
+
 import h5py
+import matplotlib
 import numpy as np
-from scipy.interpolate import CubicSpline
-
-from scipy.constants import electron_mass, atomic_mass
-
-from raysect.core import Vector3D, translate, rotate_basis
-from raysect.optical import World
-from raysect.primitive import Cylinder
-from raysect.optical.observer import SightLine, SpectralPowerPipeline0D, SpectralRadiancePipeline0D
-from raysect.optical.material.emitter.inhomogeneous import NumericalIntegrator
-
-from cherab.core import Species, Maxwellian, Plasma
-from cherab.core.atomic import deuterium, neon
+from cherab.core import Maxwellian, Plasma, Species
 from cherab.core.model import Bremsstrahlung
 from cherab.openadas import OpenADAS
+from raysect.core import SerialEngine, Vector3D, rotate_basis, translate
+from raysect.optical import World
+from raysect.optical.material.emitter.inhomogeneous import NumericalIntegrator
+from raysect.optical.observer import SightLine, SpectralPowerPipeline0D, SpectralRadiancePipeline0D
+from raysect.primitive import Cylinder
+from scipy.constants import atomic_mass, electron_mass
+from scipy.interpolate import CubicSpline
 
 from axuv.atomic import add_variant_argument, install_atomic_data, line_models
 from axuv.datafiles import data_path
+from axuv.dream import load_case, load_file, species_densities
 from axuv.io import OUTPUT_DIR
-
 
 # must be set before any pyplot import; keeps observe() from blocking on headless machines
 matplotlib.use('Agg')
@@ -34,9 +47,20 @@ MAJOR_RADIUS = 1.7365249  # from DREAM
 CENTRE_Z = 0
 CYLINDER_HEIGHT = 2
 
+SPECTRAL_BINS = 2500
+MIN_WAVELENGTH = 0.25  # nm, about 5 keV
+MAX_WAVELENGTH = 1240  # nm, 1 eV
+
+# elements whose line emission is observed as a separate part
+SEPARATE_ELEMENTS = ("W", "B", "C")
+
 
 class CustomFunction:
-    """3D radial interpolator for temperature and density profiles."""
+    """3D radial interpolator for temperature and density profiles.
+
+    Cubic spline in minor radius, zero outside the plasma. Negative values from
+    spline overshoot between grid points are set to zero.
+    """
 
     def __init__(self, radialgrid, data):
         self.radialgrid = radialgrid
@@ -48,8 +72,78 @@ class CustomFunction:
             return 0.
         radius = np.sqrt((x - MAJOR_RADIUS) ** 2 + y ** 2)
         if radius <= self.radialgrid[-1] + self.dr / 2:
-            return self.interpolated(radius)
+            return max(float(self.interpolated(radius)), 0.)
         return 0.
+
+
+def build_scene(case, index, pixel_samples, elements=None):
+    """World, sightline and plasma for one step of a DREAM case.
+
+    :return: (los, power pipeline, radiance pipeline, plasma)
+    """
+    world = World()
+    # SightLine looks in the direction of XAXIS with ZAXIS up
+    los = SightLine(parent=world, transform=rotate_basis(XAXIS, ZAXIS) * translate(0, 0, 0))
+    # no accumulation: each observe() of a model part starts from zero
+    sppipeline = SpectralPowerPipeline0D(accumulate=False)
+    sradpipeline = SpectralRadiancePipeline0D(accumulate=False)
+    los.pipelines = [sppipeline, sradpipeline]
+    los.spectral_rays = 1
+    los.spectral_bins = SPECTRAL_BINS
+    los.ray_extinction_prob = 0.01
+    los.min_wavelength = MIN_WAVELENGTH
+    los.max_wavelength = MAX_WAVELENGTH
+    los.pixel_samples = pixel_samples
+    if pixel_samples == 1:
+        los.render_engine = SerialEngine()
+
+    minor_radius = case.r_f[-1]
+    sigma = 0.25
+    plasma = Plasma(parent=world)
+    plasma.atomic_data = OpenADAS(permit_extrapolation=True)
+    plasma.geometry = Cylinder(
+        radius=MAJOR_RADIUS + minor_radius, height=CYLINDER_HEIGHT,
+        transform=translate(0, 0, CENTRE_Z - CYLINDER_HEIGHT / 2),
+    )
+    plasma.geometry_transform = None
+    plasma.integrator = NumericalIntegrator(step=sigma / 5.0)
+
+    bulk_velocity = Vector3D(0, 0, 0)
+    temperature = CustomFunction(case.r, case.T_cold[index])
+    electron_density = CustomFunction(case.r, case.n_free[index])
+    plasma.b_field = Vector3D(1.0, 1.0, 1.0)
+    plasma.electron_distribution = Maxwellian(
+        electron_density, temperature, bulk_velocity, electron_mass
+    )
+    composition = []
+    for (element, charge), density in species_densities(case, index, elements).items():
+        mass = element.atomic_weight * atomic_mass
+        distribution = Maxwellian(CustomFunction(case.r, density), temperature, bulk_velocity, mass)
+        composition.append(Species(element, charge, distribution))
+    plasma.composition = composition
+    return los, sppipeline, sradpipeline, plasma
+
+
+def model_parts(plasma, variants):
+    """Line and continuum models, split into the parts observed separately.
+
+    :return: Dict from part name ("W", "B", ..., "rest") to a model list; the
+        rest holds all other lines and Bremsstrahlung.
+    """
+    parts = {}
+    for model in line_models(plasma, variants=variants):
+        symbol = model.line.element.symbol
+        name = symbol if symbol in SEPARATE_ELEMENTS else "rest"
+        parts.setdefault(name, []).append(model)
+    parts.setdefault("rest", []).append(Bremsstrahlung())
+    return parts
+
+
+def observe(los, pipeline, plasma, models):
+    """Spectral power (W/nm) for one set of plasma models."""
+    plasma.models = models
+    los.observe()
+    return np.array(pipeline.samples.mean), np.array(pipeline.samples.variance)
 
 
 def _parse_args():
@@ -57,7 +151,14 @@ def _parse_args():
         description="Observe plasma spectrum from DREAM output along a sightline.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("time", type=float, help="Observation time [s].")
+    parser.add_argument("time", type=float, nargs="?",
+                        help="Observation time [s] in the bundled DREAM output (2.3 s + DREAM time).")
+    parser.add_argument("--case", type=Path, metavar="DIR",
+                        help="DREAM SPI case directory (init_*.h5, main.h5); use with --t-rel.")
+    parser.add_argument("--t-rel", type=float, metavar="S",
+                        help="Time relative to the TQ onset [s], for --case.")
+    parser.add_argument("--output", type=Path, metavar="FILE",
+                        help="Output HDF5 file; default under $AXUV_OUTPUT_DIR/1D_data/.")
     parser.add_argument(
         "--pixel-samples", type=float, default=3e4, metavar="N",
         help="Number of rays per pixel (los.pixel_samples).",
@@ -71,7 +172,12 @@ def _parse_args():
         help="Install the Open-ADAS data (axuv.atomic.install_atomic_data) before simulation.",
     )
     add_variant_argument(parser)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if (args.case is None) == (args.time is None):
+        parser.error("give either a time (bundled DREAM output) or --case with --t-rel")
+    if args.case is not None and args.t_rel is None:
+        parser.error("--case needs --t-rel")
+    return args
 
 
 if __name__ == "__main__":
@@ -80,116 +186,55 @@ if __name__ == "__main__":
     if args.download_adas:
         install_atomic_data()
 
-    # Load DREAM output
-    with h5py.File(data_path("dream/dream_output.h5")) as do:
-        do_ions = do["eqsys/n_i"][()]
-        do_n_cold = do["eqsys/n_cold"][()]
-        do_n_hot = do["eqsys/n_hot"][()]
-        do_n_re = do["eqsys/n_re"][()]
-        do_n_free = do_n_cold + do_n_hot + do_n_re
-        do_time = 2.3 + do["grid/t"][()]
-        do_minor_radius = do["grid/r"][()]
-        do_minor_radius_edges = do["grid/r_f"][()]
-        do_temperature = do["eqsys/T_cold"][()]
-        do_radiated_power = do["other/fluid/Tcold_radiation"][()]
-        d0_density = do_ions[:, 0, :]
-        d0i_density = do_ions[:, 2, :]
-        d1_density = do_ions[:, 1, :]
-        d1i_density = do_ions[:, 3, :]
-        ne_densities = do_ions[:, 4:, :]
+    if args.case is None:
+        case = load_file(data_path("dream/dream_output.h5"))
+        do_time = 2.3 + case.t
+        ti = bisect.bisect_left(do_time, args.time)
+        if ti >= len(do_time):
+            raise SystemExit(f"Time {args.time} s is beyond DREAM grid end {do_time[-1]:.4f} s")
+        observation_time = float(do_time[ti])
+        default_name = "highres_{:.4f}s".format(observation_time)
+    else:
+        case = load_case(args.case)
+        ti = case.index_at(args.t_rel)
+        observation_time = float(case.t_rel[ti])
+        default_name = f"{args.case.name}_trel{observation_time * 1e3:+.3f}ms"
 
-    ti = bisect.bisect_left(do_time, args.time)
-    if ti >= len(do_time):
-        raise SystemExit(f"Time {args.time} s is beyond DREAM grid end {do_time[-1]:.4f} s")
-
-    MINOR_RADIUS = do_minor_radius_edges[-1]
-
-    # Scene
-    world = World()
-
-    # SightLine looks in the direction of XAXIS with ZAXIS up
-    los = SightLine(parent=world, transform=rotate_basis(XAXIS, ZAXIS) * translate(0, 0, 0))
-    sppipeline = SpectralPowerPipeline0D()
-    sradpipeline = SpectralRadiancePipeline0D()
-    los.pipelines = [sppipeline, sradpipeline]
-    los.spectral_rays = 1
-    los.spectral_bins = 2500
-    los.ray_extinction_prob = 0.01
-    los.min_wavelength = 0.25
-    los.max_wavelength = 1240
-    los.pixel_samples = args.pixel_samples
-
-    # Plasma
     print("Building the cylindrical plasma...")
-    adas = OpenADAS(permit_extrapolation=True)
+    los, sppipeline, sradpipeline, plasma = build_scene(case, ti, args.pixel_samples)
+    parts = model_parts(plasma, args.pec_variant)
 
-    sigma = 0.25
-    plasma = Plasma(parent=world)
-    plasma.atomic_data = adas
-    plasma.geometry = Cylinder(
-        radius=MAJOR_RADIUS + MINOR_RADIUS, height=CYLINDER_HEIGHT,
-        transform=translate(0, 0, CENTRE_Z - CYLINDER_HEIGHT / 2),
-    )
-    plasma.geometry_transform = None
-    plasma.integrator = NumericalIntegrator(step=sigma / 5.0)
-
-    bulk_velocity = Vector3D(0, 0, 0)
-    deuterium_mass = deuterium.atomic_weight * atomic_mass
-    neon_mass = neon.atomic_weight * atomic_mass
-
-    temperature = CustomFunction(do_minor_radius, do_temperature[ti, :])
-    electron_density = CustomFunction(do_minor_radius, do_n_free[ti, :])
-
-    fd0_density = CustomFunction(do_minor_radius, d0_density[ti, :] + d0i_density[ti, :])
-    fd1_density = CustomFunction(do_minor_radius, d1_density[ti, :] + d1i_density[ti, :])
-
-    e_distribution = Maxwellian(electron_density, temperature, bulk_velocity, electron_mass)
-    d0_distribution = Maxwellian(fd0_density, temperature, bulk_velocity, deuterium_mass)
-    d1_distribution = Maxwellian(fd1_density, temperature, bulk_velocity, deuterium_mass)
-
-    ne_density_funcs = [
-        CustomFunction(do_minor_radius, ne_densities[ti, i, :]) for i in range(11)
-    ]
-    ne_distributions = [
-        Maxwellian(f, temperature, bulk_velocity, neon_mass) for f in ne_density_funcs
-    ]
-    ne_species = [Species(neon, i, ne_distributions[i]) for i in range(11)]
-
-    plasma.b_field = Vector3D(1.0, 1.0, 1.0)
-    plasma.electron_distribution = e_distribution
-    plasma.composition = [
-        Species(deuterium, 0, d0_distribution),
-        Species(deuterium, 1, d1_distribution),
-        *ne_species,
-    ]
-
-    plasma.models = [*line_models(plasma, variants=args.pec_variant), Bremsstrahlung()]
-
-    # Observe
     print("Observing the radiation spectrum along the LOS...")
-    los.observe()
+    total, variance = observe(los, sppipeline, plasma, [m for ms in parts.values() for m in ms])
+    part_spectra = {}
+    if len(parts) > 1:
+        for name, models in parts.items():
+            part_spectra[name] = observe(los, sppipeline, plasma, models)[0]
+        # the radiance pipeline keeps the last observe(); restore the total for --pickle
+        if args.pickle:
+            observe(los, sppipeline, plasma, [m for ms in parts.values() for m in ms])
 
-    # Save HDF5
-    folder_name = OUTPUT_DIR / "1D_data"
-    folder_name.mkdir(parents=True, exist_ok=True)
-    hdf5_path = folder_name / "highres_{:.4f}s.h5".format(do_time[ti])
-
+    hdf5_path = args.output or OUTPUT_DIR / "1D_data" / f"{default_name}.h5"
+    hdf5_path.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(hdf5_path, "w") as h5f:
-        h5f.create_dataset("spectral_power_mean",     data=sppipeline.samples.mean)
-        h5f.create_dataset("spectral_power_variance", data=sppipeline.samples.variance)
+        h5f.create_dataset("spectral_power_mean",     data=total)
+        h5f.create_dataset("spectral_power_variance", data=variance)
         h5f.create_dataset("wavelengths_nm",          data=sppipeline.wavelengths)
         h5f.create_dataset("photon_energies_eV",      data=1239.8 / sppipeline.wavelengths)
-        h5f.attrs["observation_time_s"] = float(do_time[ti])
+        for name, spectrum in part_spectra.items():
+            h5f.create_dataset(f"parts/{name}", data=spectrum)
+        h5f.attrs["observation_time_s"] = observation_time
         h5f.attrs["pixel_samples"]      = args.pixel_samples
         h5f.attrs["spectral_bins"]      = los.spectral_bins
         h5f.attrs["min_wavelength_nm"]  = los.min_wavelength
         h5f.attrs["max_wavelength_nm"]  = los.max_wavelength
+        h5f.attrs["flags"]              = "\n".join(case.flags)
 
     print(f"Saved HDF5 to {hdf5_path}")
 
     if args.pickle:
         spectrum = sradpipeline.to_spectrum()
-        pickle_path = folder_name / "highres_{:.4f}s_spectrum.pkl".format(do_time[ti])
+        pickle_path = hdf5_path.with_name(hdf5_path.stem + "_spectrum.pkl")
         with open(pickle_path, "wb") as fh:
             pickle.dump(spectrum, fh)
         print(f"Saved spectrum pickle to {pickle_path}")
