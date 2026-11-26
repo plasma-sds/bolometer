@@ -113,7 +113,7 @@ def get_weighted_power(
     weighted_power : ndarray of shape (num_diodes,)
         Integrated power for each diode weighted by the responsivity curve.
     """
-    energy_bin_edges = WAVELENGTH_BIN_EDGES / 1239.8  # nm to eV
+    energy_bin_edges = 1239.8 / WAVELENGTH_BIN_EDGES  # nm to eV, E = hc / lambda
     responsivity = degraded_sensitivity_function if degraded else sensitivity_function
     weighted_power = np.zeros(diode_data.shape[0])
 
