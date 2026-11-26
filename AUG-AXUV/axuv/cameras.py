@@ -59,7 +59,8 @@ WAVELENGTH_BIN_EDGES: np.ndarray = np.unique(
 def get_sensor_data(sensor, axuv_df, channelIDX=None):
     """
     Returns angles, distances, signal names, and the camera's forward/up
-    vectors and origin in Cartesian coordinates.
+    vectors and origin in Cartesian coordinates, the slit areas, and the chip
+    tilt (delta) of every diode.
     Also returns the f_Blende values from axuv_df, which are the areas of the slits for all the diodes.
     These will need to be converted to one float value by averaging for example.
 
@@ -77,6 +78,7 @@ def get_sensor_data(sensor, axuv_df, channelIDX=None):
 
     angles      = df['alpha'].to_numpy()
     distances   = df['d(Folie-Blende)'].to_numpy()
+    tilts       = df['delta'].to_numpy()
     signalnames = df['RAW'].to_list()
     slit_areas   = df['f_Blende'].to_numpy()
 
@@ -109,17 +111,20 @@ def get_sensor_data(sensor, axuv_df, channelIDX=None):
         camera_origin,
         Vector3D(*up_v),
         slit_areas,
+        tilts,
     )
 
 
 def make_axuv_camera(
-    sensor_angles, sensor_distances, signalnames, slit_id, slit_area, detector_id_start=0
+    sensor_angles, sensor_distances, sensor_tilts, signalnames, slit_id, slit_area, detector_id_start=0
 ):
     """
     Creates and returns an AXUV camera (box, slit, diodes) as a BolometerCamera object
 
     :param sensor_angles: angles from AXUV dataframe (alpha in the AXUV LOS geometry file)
     :param sensor_distances: distances from AXUV dataframe (d(Folie-Blende))
+    :param sensor_tilts: tilt of each diode's chip from the camera Z-axis in degrees
+      (delta in the AXUV LOS geometry file); the foil faces along the chip normal
     :param signalnames: raw signal names e.g. S1L0A01 (RAW)
     :param slit_id: In some cases one camera has actually three different boxes and slits
       and in that case three different BolometerCamera objects need to be created
@@ -136,7 +141,7 @@ def make_axuv_camera(
     # "d(Folie-Blende)" is the distance of the diodes from the origin in thew camera coordinates
     # A camera consists of a box with a rectangular slit and 48 or 16 sensors (diodes).
     # In its local coordinate system, the camera's slit is located at the
-    # origin and the sensors below the X-Y plane (z=0), looking up towards the slit.
+    # origin and the sensors below the X-Y plane (z=0), on chips facing the slit side.
     #
     # In this application, the diodes are located in the X-Z plane (y=0)
 
@@ -282,11 +287,15 @@ def make_axuv_camera(
         diode_x = distance_from_slit * np.sin(angle_rad)
         diode_z = -(distance_from_slit * np.cos(angle_rad))
 
+        # The 16 diodes of a group sit flat on one chip, so every foil faces along the
+        # chip normal, which is tilted by "delta" from the camera Z-axis. It does not
+        # face the slit: the foil-side cos(gamma) has to be part of the etendue.
         # rotate_basis(): forward: Z-axis of object
         #                 up: Y-axis
         #                 X: defined by Z and Y so that a right-handed orthogonal coordinate system is created
+        tilt_rad = np.deg2rad(sensor_tilts[j])
         diode_transform = translate(diode_x, 0, diode_z) * rotate_basis(
-            forward=Vector3D(-diode_x, 0, -diode_z), up=YAXIS
+            forward=Vector3D(-np.sin(tilt_rad), 0, np.cos(tilt_rad)), up=YAXIS
         )
 
         diode_id = "{} #{} {}".format(
@@ -318,13 +327,15 @@ def make_axuv_camera(
 
 
 def make_axuv_camera_box(
-    sensor_angles, sensor_distances, signalnames, slit_id, slit_area, detector_id_start=0
+    sensor_angles, sensor_distances, sensor_tilts, signalnames, slit_id, slit_area, detector_id_start=0
 ):
     """
     Creates and returns an AXUV camera (box, slit, diodes) as a BolometerCamera object
 
     :param sensor_angles: angles from AXUV dataframe (alpha in the AXUV LOS geometry file)
     :param sensor_distances: distances from AXUV dataframe (d(Folie-Blende))
+    :param sensor_tilts: tilt of each diode's chip from the camera Z-axis in degrees
+      (delta in the AXUV LOS geometry file); the foil faces along the chip normal
     :param signalnames: raw signal names e.g. S1L0A01 (RAW)
     :param slit_id: In some cases one camera has actually three different boxes and slits
       and in that case three different BolometerCamera objects need to be created
@@ -341,7 +352,7 @@ def make_axuv_camera_box(
     # "d(Folie-Blende)" is the distance of the diodes from the origin in thew camera coordinates
     # A camera consists of a box with a rectangular slit and 48 or 16 sensors (diodes).
     # In its local coordinate system, the camera's slit is located at the
-    # origin and the sensors below the X-Y plane (z=0), looking up towards the slit.
+    # origin and the sensors below the X-Y plane (z=0), on chips facing the slit side.
     #
     #               Z-axis
     #                |
@@ -412,11 +423,15 @@ def make_axuv_camera_box(
         diode_x = distance_from_slit * np.sin(angle_rad)
         diode_z = -(distance_from_slit * np.cos(angle_rad))
 
+        # The 16 diodes of a group sit flat on one chip, so every foil faces along the
+        # chip normal, which is tilted by "delta" from the camera Z-axis. It does not
+        # face the slit: the foil-side cos(gamma) has to be part of the etendue.
         # rotate_basis(): forward: Z-axis of object
         #                 up: Y-axis
         #                 X: defined by Z and Y so that a right-handed orthogonal coordinate system is created
+        tilt_rad = np.deg2rad(sensor_tilts[j])
         diode_transform = translate(diode_x, 0, diode_z) * rotate_basis(
-            forward=Vector3D(-diode_x, 0, -diode_z), up=YAXIS
+            forward=Vector3D(-np.sin(tilt_rad), 0, np.cos(tilt_rad)), up=YAXIS
         )
         diode_id = "{} #{} {}".format(
             slit_id, detector_id_start + j + 1, signalnames[j]
@@ -465,13 +480,13 @@ def create_observable_world(sectors, axuv_df, cad_mesh=False, show_plots=False, 
         print(f"  sector: {sector}, box: {config['box']}, frustum: {config['frustum']}")
 
         for cam_name in config["box"]:
-            angles, distances, names, fwd, origin, up, slit_areas = get_sensor_data(
+            angles, distances, names, fwd, origin, up, slit_areas, tilts = get_sensor_data(
                 cam_name, axuv_df
             )
             print(f"Number of slit_area values to average: {slit_areas.shape[0]}")
             # average slit_areas to get slit_area
             slit_area = slit_areas.mean(axis=0)
-            cam = make_axuv_camera_box(angles, distances, names, cam_name, slit_area)
+            cam = make_axuv_camera_box(angles, distances, tilts, names, cam_name, slit_area)
             cam.transform = translate(*origin) * rotate_basis(forward=fwd, up=up)
             cam.parent = world
             cam.name = cam_name
@@ -480,14 +495,14 @@ def create_observable_world(sectors, axuv_df, cad_mesh=False, show_plots=False, 
 
         for cam_name in config["frustum"]:
             for i in range(3):
-                angles, distances, names, fwd, origin, up, slit_areas = get_sensor_data(
+                angles, distances, names, fwd, origin, up, slit_areas, tilts = get_sensor_data(
                     cam_name, axuv_df, channelIDX=i * 16
                 )
                 c_name = f"{cam_name}_{i + 1}"
                 print(f"Number of slit_area values to average: {slit_areas.shape[0]}")
                 slit_area = slit_areas.mean(axis=0)
                 cam = make_axuv_camera(
-                    angles, distances, names, c_name, slit_area, detector_id_start=i * 16
+                    angles, distances, tilts, names, c_name, slit_area, detector_id_start=i * 16
                 )
                 cam.transform = translate(*origin) * rotate_basis(forward=fwd, up=up)
                 cam.parent = world

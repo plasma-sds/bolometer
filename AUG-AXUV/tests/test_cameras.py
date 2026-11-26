@@ -71,6 +71,7 @@ def _make_mock_df(n_channels=48, R=1.8, phi=22.5, z=0.0):
             "Cam":            "DHT",
             "chan":           ch,
             "alpha":          float(ch - n_channels // 2),  # spread around 0
+            "delta":          0.0,
             "d(Folie-Blende)": 0.05,
             "f_Blende":       2.41449e-06,  # slit area (m^2), typical value from AXUV_LOS_geom.txt
             "RAW":            f"S1L0A{ch:02d}",
@@ -89,17 +90,18 @@ def test_get_sensor_data_return_lengths():
     """angles, distances, signalnames must each have n_channels entries."""
     n = 16
     df = _make_mock_df(n_channels=n)
-    angles, distances, signalnames, fwd, origin, up, slit_area = get_sensor_data("DHT", df)
+    angles, distances, signalnames, fwd, origin, up, slit_area, tilts = get_sensor_data("DHT", df)
 
     assert len(angles)      == n
     assert len(distances)   == n
+    assert len(tilts)       == n
     assert len(signalnames) == n
 
 
 def test_get_sensor_data_forward_vector_is_unit():
     """The returned forward vector must be a unit vector."""
     df = _make_mock_df(n_channels=48)
-    _, _, _, fwd, _, _, _ = get_sensor_data("DHT", df)
+    _, _, _, fwd, _, _, _, _ = get_sensor_data("DHT", df)
     magnitude = math.sqrt(fwd.x**2 + fwd.y**2 + fwd.z**2)  # type: ignore[attr-defined]
     assert magnitude == pytest.approx(1.0, abs=1e-9)
 
@@ -107,7 +109,7 @@ def test_get_sensor_data_forward_vector_is_unit():
 def test_get_sensor_data_up_vector_is_unit():
     """The returned up vector must be a unit vector."""
     df = _make_mock_df(n_channels=48)
-    _, _, _, _, _, up, _ = get_sensor_data("DHT", df)
+    _, _, _, _, _, up, _, _ = get_sensor_data("DHT", df)
     magnitude = math.sqrt(up.x**2 + up.y**2 + up.z**2)  # type: ignore[attr-defined]
     assert magnitude == pytest.approx(1.0, abs=1e-9)
 
@@ -121,12 +123,31 @@ def test_get_sensor_data_channel_idx_slices_correctly():
     df2["Cam"] = "DVC"
     full_df = pd.concat([df, df2], ignore_index=True)
 
-    angles, distances, _, _, _, _, _ = get_sensor_data("DHT", full_df, channelIDX=16)
+    angles, distances, _, _, _, _, _, _ = get_sensor_data("DHT", full_df, channelIDX=16)
     assert len(angles) == 16
     assert len(distances) == 16
 
 
 def test_get_sensor_data_signalnames_are_strings():
     df = _make_mock_df()
-    _, _, signalnames, _, _, _, _ = get_sensor_data("DHT", df)
+    _, _, signalnames, _, _, _, _, _ = get_sensor_data("DHT", df)
     assert all(isinstance(s, str) for s in signalnames)
+
+# ── Foil orientation ─────────────────────────────────────────────────────────
+def test_foils_face_along_the_chip_normal():
+    """Each foil lies flat on its chip: its normal is tilted by delta from the camera
+    Z-axis, independent of the diode's viewing angle alpha."""
+    import numpy as np
+    from raysect.core import World
+
+    from axuv.cameras import make_axuv_camera_box
+
+    alphas = np.array([60.0, 42.0, 25.0, 10.0, 0.0, -10.0])
+    deltas = np.array([42.0, 42.0, 42.0, 0.0, 0.0, 0.0])
+    names = [f"S7L1A{k:02d}" for k in range(len(alphas))]
+    camera = make_axuv_camera_box(alphas, np.full(len(alphas), 0.045), deltas, names, "DHT", 2.2e-6)
+    camera.parent = World()
+    for foil, delta in zip(camera.foil_detectors, deltas):
+        normal = foil.normal_vector
+        expected = np.array([-np.sin(np.deg2rad(delta)), 0.0, np.cos(np.deg2rad(delta))])
+        assert np.allclose([normal.x, normal.y, normal.z], expected, atol=1e-9)
