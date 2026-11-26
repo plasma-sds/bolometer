@@ -15,10 +15,14 @@ from axuv_measurement.config import SIGNAL_NAMES, SIG_KEY_LIST
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-def get_AXUV_signals(shot: int, camera: str, tbeg: float=2.0, tend: float=2.5, gaussian_sigma: int=10):
+def get_AXUV_signals(shot: int, camera: str, tbeg: float=2.0, tend: float=2.5, gaussian_sigma: int=10,
+                     offset_window: float | None = 1.0):
     """
     Goes through all signals from one AXUV :camera: in one :shot:
     Takes the shortened timesignal once, set by :tbeg: and :tend:
+    Subtracts the dark offset of each channel, the mean of the calibrated signal over the
+    last :offset_window: seconds of the shotfile timebase, which lies after the end of the plasma.
+    None skips the subtraction.
     Takes the AXUV signals and smooths them with a gaussian filter with :gaussian_sigma:
     """
     if camera not in SIG_KEY_LIST:
@@ -36,9 +40,21 @@ def get_AXUV_signals(shot: int, camera: str, tbeg: float=2.0, tend: float=2.5, g
 
     data_out = np.zeros((num_of_signals, signallength))
 
+    if offset_window is not None:
+        time_end = float(signal.gettimebase(SIGNAL_NAMES[camera][1][0])[-1])
+        offset_tbeg = time_end - offset_window
+        if offset_tbeg < tend:
+            raise ValueError(
+                f"Offset window {offset_tbeg:.3f}..{time_end:.3f} s overlaps the requested data "
+                f"{tbeg:.3f}..{tend:.3f} s; it has to lie after the plasma."
+            )
+
     for i, sig in enumerate(SIGNAL_NAMES[camera][1]):
         try:
             data_in = signal.getobject(sig, tbeg=tbeg, tend=tend, cal=True)
+            if offset_window is not None:
+                offset = np.mean(signal.getobject(sig, tbeg=offset_tbeg, tend=time_end, cal=True))
+                data_in = data_in - offset
             data_out[i, :] = gaussian_filter1d(input=data_in, sigma=gaussian_sigma)
             print('OK', end="\r")
 
