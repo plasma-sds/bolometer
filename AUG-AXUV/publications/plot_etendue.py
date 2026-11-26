@@ -1,4 +1,13 @@
 # %%
+"""Ray-traced etendue of all 192 diodes against AUG's analytical value (Faktor = G / 4 pi).
+
+By default the etendue files are read by their data keys, geometry/etendue_{S5,S16}.h5.
+--etendue-dir DIR reads DIR/etendue_S5.h5 and DIR/etendue_S16.h5 instead, e.g. a fresh
+Stage 1 --etendue-mode output. The figure is saved to $AXUV_OUTPUT_DIR.
+"""
+import argparse
+from pathlib import Path
+
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,8 +22,18 @@ set_plt_rcparams()
 
 
 # %% Load etendue data
-ETENDUE_PATH_S5 = data_path("geometry/etendue_S5.h5")
-ETENDUE_PATH_S16 = data_path("geometry/etendue_S16.h5")
+parser = argparse.ArgumentParser(description="Plot the ray-traced etendue against AUG's.")
+parser.add_argument("--etendue-dir", type=Path, default=None,
+                    help="Folder with etendue_S5.h5 and etendue_S16.h5 (default: the data keys).")
+# parse_known_args, so the script also runs cell by cell in an IPython kernel
+args, _ = parser.parse_known_args()
+
+if args.etendue_dir is None:
+    ETENDUE_PATH_S5 = data_path("geometry/etendue_S5.h5")
+    ETENDUE_PATH_S16 = data_path("geometry/etendue_S16.h5")
+else:
+    ETENDUE_PATH_S5 = args.etendue_dir.expanduser() / "etendue_S5.h5"
+    ETENDUE_PATH_S16 = args.etendue_dir.expanduser() / "etendue_S16.h5"
 with h5py.File(ETENDUE_PATH_S5, "r") as h5f:
     raytraced_etendue_s5 = np.asarray(h5f["raytraced_etendue"])
     raytraced_error_s5 = np.asarray(h5f["raytraced_error"])
@@ -99,16 +118,21 @@ diode_indices = range(len(raytraced_etendue))
 
 fig, ax = plt.subplots(figsize=(10, 4.5))
 
-ax.plot(diode_indices, raytraced_etendue, label="Raytraced")
+# The two curves overlap within about 1 %: AUG as a solid line, the ray-traced
+# values as open markers with their Monte Carlo error bars on top of it
+ax.plot(diode_indices, aug_etendue, color="C1", label="AUG analytical")
 ax.errorbar(
     diode_indices,
     raytraced_etendue,
     yerr=raytraced_error,
-    fmt="none",
+    fmt="o",
+    markersize=4,
+    markerfacecolor="none",
+    color="C0",
     ecolor="gray",
-    capsize=3,
+    capsize=2,
+    label="Raytraced",
 )
-ax.plot(diode_indices, aug_etendue, label="AUG analytical")
 ax.set_xlabel("Diode index")
 ax.set_ylabel(r"Etendue [m$^2$]")
 
