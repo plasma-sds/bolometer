@@ -153,8 +153,6 @@ def make_axuv_camera(
 
     slit_x = slit_area / slit_y
     material_width = 1e-6
-    top_x = slit_x / 2 + material_width  # let's not have any edge around the slit
-    top_y = slit_y / 2 + material_width
 
     inner_back_x = FRUSTUM_WIDTH_X / 2
     inner_back_y = BOX_HEIGHT_Y / 2
@@ -164,8 +162,15 @@ def make_axuv_camera(
     outer_back_y = inner_back_y + material_width
     outer_depth = inner_depth + material_width
 
+    # The frustum narrows only poloidally (x), towards the slit. Toroidally (y) its walls
+    # stay at BOX_HEIGHT_Y / 2 as in the box cameras: a wall tapering to the slit height
+    # would cut into the 5 mm long foils (SENSOR_Y_SIZE) at their depth. The top face is a
+    # thin plate with the slit cut out of it below.
+    top_x = slit_x / 2 + material_width  # let's not have any edge around the slit
+    top_y = outer_back_y
+
     top_x_inner = top_x - material_width
-    top_y_inner = top_y - material_width
+    top_y_inner = inner_back_y
 
     bottom_vertices = [
         Point3D(-outer_back_x, -outer_back_y, -outer_depth),
